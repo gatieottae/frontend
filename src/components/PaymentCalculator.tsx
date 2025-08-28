@@ -151,10 +151,26 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
     return paymentStatuses.find(p => p.from === from && p.to === to);
   };
 
+  // 송금 상태 텍스트
+  const getTransferStatusText = (from: string, to: string) => {
+    const status = getPaymentStatus(from, to);
+    if (status?.sent && status?.received) return "✅ 송금 확인됨";
+    if (status?.sent && !status?.received) return `${from}님 → 송금 완료 (확인 대기)`;
+    return `${from}님 → 아직 송금 안함`;
+  };
+
+  // 사용자 액션 안내 텍스트
+  const getUserActionText = (from: string, to: string) => {
+    const status = getPaymentStatus(from, to);
+    if (status?.sent && status?.received) return "송금 완료됨";
+    if (status?.sent && !status?.received) return "보냈습니다 (취소 가능)";
+    return "송금해야 합니다";
+  };
+
   // 정산 계산
   const calculateSettlement = () => {
     const memberBalances: { [key: string]: number } = {};
-    
+
     // 멤버별 잔액 초기화
     members.forEach(member => {
       memberBalances[member.name] = 0;
@@ -164,10 +180,10 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
     expenses.forEach(expense => {
       if (expense.splitType === "equal") {
         const splitAmount = expense.amount / expense.splitAmong.length;
-        
+
         // 지불자는 전액 지불했으므로 플러스
         memberBalances[expense.paidBy] += expense.amount;
-        
+
         // 분담자들은 각자 분담금만큼 마이너스
         expense.splitAmong.forEach(member => {
           memberBalances[member] -= splitAmount;
@@ -175,7 +191,7 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
       } else if (expense.splitType === "custom" && expense.customSplits) {
         // 지불자는 전액 지불했으므로 플러스
         memberBalances[expense.paidBy] += expense.amount;
-        
+
         // 분담자들은 각자 설정된 금액만큼 마이너스
         Object.entries(expense.customSplits).forEach(([member, amount]) => {
           memberBalances[member] -= amount;
@@ -189,10 +205,10 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
   const calculateTransfers = () => {
     const balances = calculateSettlement();
     const transfers: { from: string; to: string; amount: number }[] = [];
-    
+
     const debtors = Object.entries(balances).filter(([_, balance]) => balance < 0);
     const creditors = Object.entries(balances).filter(([_, balance]) => balance > 0);
-    
+
     debtors.forEach(([debtor, debt]) => {
       creditors.forEach(([creditor, credit]) => {
         if (Math.abs(debt) > 0 && credit > 0) {
@@ -202,13 +218,13 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
             to: creditor,
             amount: Math.round(transferAmount)
           });
-          
+
           balances[debtor] += transferAmount;
           balances[creditor] -= transferAmount;
         }
       });
     });
-    
+
     return transfers.filter(t => t.amount > 0);
   };
 
@@ -249,145 +265,7 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 지출 추가 버튼 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span className="flex items-center space-x-2">
-                <Plus className="h-5 w-5" />
-                <span>지출 추가</span>
-              </span>
-              <Dialog open={isAddingExpense} onOpenChange={setIsAddingExpense}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    새 지출
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>새 지출 추가</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="expense-title">지출 내역</Label>
-                      <Input
-                        id="expense-title"
-                        value={newExpense.title}
-                        onChange={(e) => setNewExpense({...newExpense, title: e.target.value})}
-                        placeholder="예: 숙소 예약, 식사 등"
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="expense-amount">금액</Label>
-                      <Input
-                        id="expense-amount"
-                        type="number"
-                        value={newExpense.amount}
-                        onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
-                        placeholder="0"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="paid-by">지불자</Label>
-                      <select
-                        id="paid-by"
-                        value={newExpense.paidBy}
-                        onChange={(e) => setNewExpense({...newExpense, paidBy: e.target.value})}
-                        className="w-full p-2 border border-input rounded-md bg-background"
-                      >
-                        {members.map(member => (
-                          <option key={member.id} value={member.name}>
-                            {member.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <Label>분담 방식</Label>
-                      <div className="flex space-x-4 mt-2">
-                        <Button
-                          type="button"
-                          variant={newExpense.splitType === "equal" ? "default" : "outline"}
-                          onClick={() => setNewExpense({...newExpense, splitType: "equal"})}
-                        >
-                          1/n (균등분할)
-                        </Button>
-                        <Button
-                          type="button"
-                          variant={newExpense.splitType === "custom" ? "default" : "outline"}
-                          onClick={() => setNewExpense({...newExpense, splitType: "custom"})}
-                        >
-                          개별 금액
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label>분담자 선택</Label>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {members.map(member => (
-                          <Badge
-                            key={member.id}
-                            variant={newExpense.splitAmong.includes(member.name) ? "default" : "outline"}
-                            className="cursor-pointer"
-                            onClick={() => toggleMemberInSplit(member.name)}
-                          >
-                            {member.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    {newExpense.splitType === "custom" && (
-                      <div>
-                        <Label>개별 분담 금액</Label>
-                        <div className="space-y-2 mt-2">
-                          {newExpense.splitAmong.map(memberName => (
-                            <div key={memberName} className="flex items-center space-x-2">
-                              <span className="w-20 text-sm">{memberName}:</span>
-                              <Input
-                                type="number"
-                                placeholder="0"
-                                value={newExpense.customSplits[memberName] || ""}
-                                onChange={(e) => handleCustomSplitChange(memberName, e.target.value)}
-                                className="flex-1"
-                              />
-                              <span className="text-sm text-muted-foreground">원</span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="text-sm text-muted-foreground mt-2">
-                          총 분담금: {Object.values(newExpense.customSplits).reduce((sum, amount) => sum + (amount || 0), 0).toLocaleString()}원
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex space-x-2">
-                      <Button onClick={handleAddExpense} className="flex-1">
-                        추가
-                      </Button>
-                      <Button variant="outline" onClick={() => setIsAddingExpense(false)} className="flex-1">
-                        취소
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground text-center py-8">
-              새 지출 버튼을 클릭하여 지출을 추가하세요.
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* 정산 현황 */}
+      {/* 정산 현황 */}
         <Card>
           <CardHeader>
             <CardTitle>정산 현황</CardTitle>
@@ -397,7 +275,7 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
               {members.map(member => {
                 const balance = balances[member.name] || 0;
                 const isPositive = balance > 0;
-                
+
                 return (
                   <div key={member.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center space-x-3">
@@ -421,7 +299,6 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
             </div>
           </CardContent>
         </Card>
-      </div>
 
       {/* 송금 현황 */}
       {transfers.length > 0 && (
@@ -432,7 +309,24 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
           <CardContent>
             <div className="space-y-3">
               {transfers.map((transfer, index) => {
-                const status = getPaymentStatus(transfer.from, transfer.to);
+                // Assume nickname is available in component
+                // You may want to get this from props, context, or state as needed.
+                // For demonstration, let's assume:
+                const nickname = window.localStorage.getItem("nickname") || "";
+                const transferStatus = getPaymentStatus(transfer.from, transfer.to);
+                // Handlers for new button logic
+                const handleSend = (from: string, to: string) => {
+                  togglePaymentSent(from, to, transfer.amount);
+                };
+                const handleCancel = (from: string, to: string) => {
+                  // 취소는 sent를 false로 변경
+                  if (transferStatus?.sent) {
+                    togglePaymentSent(from, to, transfer.amount);
+                  }
+                };
+                const handleReceive = (from: string, to: string) => {
+                  togglePaymentReceived(from, to, transfer.amount);
+                };
                 return (
                   <div key={index} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
@@ -443,28 +337,39 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
                       </div>
                       <span className="font-bold text-lg">{formatCurrency(transfer.amount)}</span>
                     </div>
-                    
-                    <div className="flex space-x-2">
-                      <Button
-                        size="sm"
-                        variant={status?.sent ? "default" : "outline"}
-                        onClick={() => togglePaymentSent(transfer.from, transfer.to, transfer.amount)}
-                        className="flex items-center space-x-1"
-                      >
-                        {status?.sent ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
-                        <span>{status?.sent ? "보냈어요!" : "보내기"}</span>
-                      </Button>
-                      
-                      <Button
-                        size="sm"
-                        variant={status?.received ? "default" : "outline"}
-                        onClick={() => togglePaymentReceived(transfer.from, transfer.to, transfer.amount)}
-                        className="flex items-center space-x-1"
-                      >
-                        {status?.received ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
-                        <span>{status?.received ? "받았어요!" : "받기"}</span>
-                      </Button>
+                    <p className="text-sm text-muted-foreground">
+                      {getTransferStatusText(transfer.from, transfer.to)}
+                    </p>
+                    <div className="flex space-x-2 mt-2">
+                      {/* Action buttons for 송금자 본인 and 지출자 only */}
+                      {(() => {
+                        const transferStatus = getPaymentStatus(transfer.from, transfer.to);
+                        // "보냈어요 / 안보냈어요" 버튼: only for 송금자 본인
+                        if (nickname === transfer.from) {
+                          return (
+                            <>
+                              <Button onClick={() => handleSend(transfer.from, transfer.to)}>보냈어요</Button>
+                              <Button onClick={() => handleCancel(transfer.from, transfer.to)}>안 보냈어요</Button>
+                            </>
+                          );
+                        }
+                        // "확인했어요" 버튼: only for 지출자, sent=true, received=false
+                        if (
+                          nickname === transfer.to &&
+                          transferStatus?.sent &&
+                          !transferStatus?.received
+                        ) {
+                          return (
+                            <Button onClick={() => handleReceive(transfer.from, transfer.to)}>확인했어요</Button>
+                          );
+                        }
+                        // No buttons for unrelated users
+                        return null;
+                      })()}
                     </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {getUserActionText(transfer.from, transfer.to)}
+                    </p>
                   </div>
                 );
               })}
@@ -476,7 +381,9 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
       {/* 지출 내역 */}
       <Card>
         <CardHeader>
-          <CardTitle>지출 내역</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            <span>지출 내역</span>
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {expenses.length === 0 ? (
@@ -516,6 +423,128 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
           )}
         </CardContent>
       </Card>
+      {/* 고정된 새 지출 버튼 (Floating Action Button) - moved to very end */}
+    <div className="fixed bottom-6 right-6 z-50">
+      <Dialog open={isAddingExpense} onOpenChange={setIsAddingExpense}>
+        <DialogTrigger asChild>
+          <Button className="rounded-full shadow-lg bg-yellow-400 hover:bg-yellow-500 text-white px-6 py-3 text-base font-semibold">
+            지출 추가하기
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>새 지출 추가</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="expense-title">지출 내역</Label>
+              <Input
+                id="expense-title"
+                value={newExpense.title}
+                onChange={(e) => setNewExpense({...newExpense, title: e.target.value})}
+                placeholder="예: 숙소 예약, 식사 등"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="expense-amount">금액</Label>
+              <Input
+                id="expense-amount"
+                type="number"
+                value={newExpense.amount}
+                onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
+                placeholder="0"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="paid-by">지불자</Label>
+              <select
+                id="paid-by"
+                value={newExpense.paidBy}
+                onChange={(e) => setNewExpense({...newExpense, paidBy: e.target.value})}
+                className="w-full p-2 border border-input rounded-md bg-background"
+              >
+                {members.map(member => (
+                  <option key={member.id} value={member.name}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <Label>분담 방식</Label>
+              <div className="flex space-x-4 mt-2">
+                <Button
+                  type="button"
+                  variant={newExpense.splitType === "equal" ? "default" : "outline"}
+                  onClick={() => setNewExpense({...newExpense, splitType: "equal"})}
+                >
+                  1/n (균등분할)
+                </Button>
+                <Button
+                  type="button"
+                  variant={newExpense.splitType === "custom" ? "default" : "outline"}
+                  onClick={() => setNewExpense({...newExpense, splitType: "custom"})}
+                >
+                  개별 금액
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <Label>분담자 선택</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {members.map(member => (
+                  <Badge
+                    key={member.id}
+                    variant={newExpense.splitAmong.includes(member.name) ? "default" : "outline"}
+                    className="cursor-pointer"
+                    onClick={() => toggleMemberInSplit(member.name)}
+                  >
+                    {member.name}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {newExpense.splitType === "custom" && (
+              <div>
+                <Label>개별 분담 금액</Label>
+                <div className="space-y-2 mt-2">
+                  {newExpense.splitAmong.map(memberName => (
+                    <div key={memberName} className="flex items-center space-x-2">
+                      <span className="w-20 text-sm">{memberName}:</span>
+                      <Input
+                        type="number"
+                        placeholder="0"
+                        value={newExpense.customSplits[memberName] || ""}
+                        onChange={(e) => handleCustomSplitChange(memberName, e.target.value)}
+                        className="flex-1"
+                      />
+                      <span className="text-sm text-muted-foreground">원</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-sm text-muted-foreground mt-2">
+                  총 분담금: {Object.values(newExpense.customSplits).reduce((sum, amount) => sum + (amount || 0), 0).toLocaleString()}원
+                </div>
+              </div>
+            )}
+
+            <div className="flex space-x-2">
+              <Button onClick={handleAddExpense} className="flex-1">
+                추가
+              </Button>
+              <Button variant="outline" onClick={() => setIsAddingExpense(false)} className="flex-1">
+                취소
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
     </div>
   );
 };
