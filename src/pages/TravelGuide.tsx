@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -212,9 +211,11 @@ const TravelGuide = () => {
                           </div>
                         </div>
                         
-                        <Button className="w-full">
-                          가이드 보기
-                        </Button>
+                        <Link to={`/guide/${guide.id}`}>
+                          <Button className="w-full">
+                            가이드 보기
+                          </Button>
+                        </Link>
                       </CardContent>
                     </Card>
                   ))}
