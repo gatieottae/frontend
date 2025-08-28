@@ -1,38 +1,84 @@
 
-import { Button } from "@/components/ui/button";
-import { Bell, User, Plus } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Menu, X } from "lucide-react";
+import NotificationBell from "./NotificationBell";
 
 const Header = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const navigation = [
+    { name: "홈", href: "/" },
+    { name: "여행 가이드", href: "/travel-guide" },
+    { name: "알림", href: "/notifications" },
+    { name: "프로필", href: "/profile" },
+  ];
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-card/80 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Link to="/">
-            <h1 className="text-2xl font-bold gradient-text cursor-pointer">같이어때</h1>
+        <Link to="/" className="font-bold text-xl text-primary">
+          TravelMate
+        </Link>
+
+        {/* Desktop Navigation */}
+        <nav className="hidden md:flex items-center space-x-6">
+          {navigation.slice(0, -2).map((item) => (
+            <Link
+              key={item.name}
+              to={item.href}
+              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+            >
+              {item.name}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="hidden md:flex items-center space-x-4">
+          <NotificationBell />
+          <Link to="/notifications">
+            <Button variant="ghost" size="sm">
+              알림
+            </Button>
+          </Link>
+          <Link to="/profile">
+            <Button variant="ghost" size="sm">
+              프로필
+            </Button>
           </Link>
         </div>
-        
-        <div className="flex items-center space-x-4">
-          <Link to="/notifications">
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute -top-1 -right-1 h-3 w-3 bg-primary rounded-full"></span>
-            </Button>
-          </Link>
-          
-          <Button variant="outline" className="hidden sm:flex">
-            <Plus className="h-4 w-4 mr-2" />
-            그룹 만들기
+
+        {/* Mobile Menu Button */}
+        <div className="md:hidden flex items-center space-x-2">
+          <NotificationBell />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
-          
-          <Link to="/profile">
-            <Button variant="ghost" size="icon">
-              <User className="h-5 w-5" />
-            </Button>
-          </Link>
         </div>
       </div>
+
+      {/* Mobile Navigation */}
+      {isMenuOpen && (
+        <div className="md:hidden border-t bg-background">
+          <nav className="container mx-auto px-4 py-4 space-y-2">
+            {navigation.map((item) => (
+              <Link
+                key={item.name}
+                to={item.href}
+                className="block px-3 py-2 text-sm font-medium text-muted-foreground hover:text-primary hover:bg-muted rounded-md transition-colors"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {item.name}
+              </Link>
+            ))}
+          </nav>
+        </div>
+      )}
     </header>
   );
 };

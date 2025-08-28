@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,13 +13,11 @@ import {
   Heart,
   Clock,
   DollarSign,
-  Camera,
-  Utensils,
-  Car,
   Phone,
   Globe,
   Share2
 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 // 임시 상세 가이드 데이터
 const guideDetails = {
@@ -37,6 +34,7 @@ const guideDetails = {
     duration: "3박 4일",
     budget: "30-40만원",
     author: {
+      id: "author1",
       name: "여행작가 김민수",
       avatar: "/placeholder.svg",
       trips: 127
@@ -89,6 +87,8 @@ const guideDetails = {
 
 const GuideDetail = () => {
   const { guideId } = useParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [isFavorite, setIsFavorite] = useState(false);
   
   const guide = guideDetails[guideId as keyof typeof guideDetails];
@@ -105,6 +105,22 @@ const GuideDetail = () => {
       </div>
     );
   }
+
+  const handleAddToSchedule = () => {
+    toast({
+      title: "일정에 추가되었습니다!",
+      description: "그룹 캘린더에서 확인할 수 있습니다.",
+    });
+    // 실제로는 그룹 일정에 추가하는 로직이 들어갑니다
+  };
+
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    toast({
+      title: "링크가 복사되었습니다!",
+      description: "다른 사람들과 공유해보세요.",
+    });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -136,6 +152,7 @@ const GuideDetail = () => {
             variant="ghost"
             size="icon"
             className="bg-white/20 hover:bg-white/30 text-white"
+            onClick={handleShare}
           >
             <Share2 className="h-5 w-5" />
           </Button>
@@ -213,14 +230,18 @@ const GuideDetail = () => {
                     <p className="text-sm text-muted-foreground">{guide.author.trips}개의 여행기</p>
                   </div>
                 </div>
-                <Button className="w-full mb-2">
-                  <Phone className="h-4 w-4 mr-2" />
-                  문의하기
-                </Button>
-                <Button variant="outline" className="w-full">
-                  <Globe className="h-4 w-4 mr-2" />
-                  다른 가이드 보기
-                </Button>
+                <Link to={`/guide/${guideId}/contact`}>
+                  <Button className="w-full mb-2">
+                    <Phone className="h-4 w-4 mr-2" />
+                    문의하기
+                  </Button>
+                </Link>
+                <Link to={`/author/${guide.author.id}/guides`}>
+                  <Button variant="outline" className="w-full">
+                    <Globe className="h-4 w-4 mr-2" />
+                    다른 가이드 보기
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           </div>
@@ -309,11 +330,11 @@ const GuideDetail = () => {
 
         {/* Action Buttons */}
         <div className="mt-8 flex flex-col sm:flex-row gap-4">
-          <Button className="flex-1">
+          <Button className="flex-1" onClick={handleAddToSchedule}>
             <Calendar className="h-4 w-4 mr-2" />
             일정에 추가하기
           </Button>
-          <Button variant="outline" className="flex-1">
+          <Button variant="outline" className="flex-1" onClick={handleShare}>
             <Share2 className="h-4 w-4 mr-2" />
             공유하기
           </Button>

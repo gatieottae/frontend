@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Calculator, Plus, Trash2, DollarSign } from "lucide-react";
+import { Calculator, Plus, Trash2, DollarSign, Check, X } from "lucide-react";
 
 interface PaymentCalculatorProps {
   groupId: string;
@@ -21,6 +20,16 @@ interface Expense {
   paidBy: string;
   splitAmong: string[];
   date: string;
+  splitType: "equal" | "custom";
+  customSplits?: { [memberName: string]: number };
+}
+
+interface PaymentStatus {
+  from: string;
+  to: string;
+  amount: number;
+  sent: boolean;
+  received: boolean;
 }
 
 // 임시 결제 데이터
@@ -31,7 +40,8 @@ const mockExpenses: Expense[] = [
     amount: 240000,
     paidBy: "김민수",
     splitAmong: ["김민수", "이지은", "박정우", "최유리"],
-    date: "2025-03-01"
+    date: "2025-03-01",
+    splitType: "equal"
   },
   {
     id: "2",
@@ -39,18 +49,22 @@ const mockExpenses: Expense[] = [
     amount: 120000,
     paidBy: "이지은",
     splitAmong: ["김민수", "이지은", "박정우", "최유리"],
-    date: "2025-03-02"
+    date: "2025-03-02",
+    splitType: "equal"
   }
 ];
 
 const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
   const [expenses, setExpenses] = useState<Expense[]>(mockExpenses);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
+  const [paymentStatuses, setPaymentStatuses] = useState<PaymentStatus[]>([]);
   const [newExpense, setNewExpense] = useState({
     title: "",
     amount: "",
     paidBy: members[0]?.name || "",
-    splitAmong: members.map(m => m.name)
+    splitAmong: members.map(m => m.name),
+    splitType: "equal" as "equal" | "custom",
+    customSplits: {} as { [memberName: string]: number }
   });
 
   const handleAddExpense = () => {
@@ -61,14 +75,18 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
         amount: parseInt(newExpense.amount),
         paidBy: newExpense.paidBy,
         splitAmong: newExpense.splitAmong,
-        date: new Date().toISOString().split('T')[0]
+        date: new Date().toISOString().split('T')[0],
+        splitType: newExpense.splitType,
+        customSplits: newExpense.splitType === "custom" ? newExpense.customSplits : undefined
       };
       setExpenses([...expenses, expense]);
       setNewExpense({
         title: "",
         amount: "",
         paidBy: members[0]?.name || "",
-        splitAmong: members.map(m => m.name)
+        splitAmong: members.map(m => m.name),
+        splitType: "equal",
+        customSplits: {}
       });
       setIsAddingExpense(false);
     }
@@ -87,6 +105,52 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
     });
   };
 
+  const handleCustomSplitChange = (memberName: string, amount: string) => {
+    setNewExpense({
+      ...newExpense,
+      customSplits: {
+        ...newExpense.customSplits,
+        [memberName]: parseFloat(amount) || 0
+      }
+    });
+  };
+
+  const togglePaymentSent = (from: string, to: string, amount: number) => {
+    const key = `${from}-${to}`;
+    setPaymentStatuses(prev => {
+      const existing = prev.find(p => p.from === from && p.to === to);
+      if (existing) {
+        return prev.map(p => 
+          p.from === from && p.to === to 
+            ? { ...p, sent: !p.sent }
+            : p
+        );
+      } else {
+        return [...prev, { from, to, amount, sent: true, received: false }];
+      }
+    });
+  };
+
+  const togglePaymentReceived = (from: string, to: string, amount: number) => {
+    const key = `${from}-${to}`;
+    setPaymentStatuses(prev => {
+      const existing = prev.find(p => p.from === from && p.to === to);
+      if (existing) {
+        return prev.map(p => 
+          p.from === from && p.to === to 
+            ? { ...p, received: !p.received }
+            : p
+        );
+      } else {
+        return [...prev, { from, to, amount, sent: false, received: true }];
+      }
+    });
+  };
+
+  const getPaymentStatus = (from: string, to: string) => {
+    return paymentStatuses.find(p => p.from === from && p.to === to);
+  };
+
   // 정산 계산
   const calculateSettlement = () => {
     const memberBalances: { [key: string]: number } = {};
@@ -98,21 +162,58 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
 
     // 각 지출에 대해 계산
     expenses.forEach(expense => {
-      const splitAmount = expense.amount / expense.splitAmong.length;
-      
-      // 지불자는 전액 지불했으므로 플러스
-      memberBalances[expense.paidBy] += expense.amount;
-      
-      // 분담자들은 각자 분담금만큼 마이너스
-      expense.splitAmong.forEach(member => {
-        memberBalances[member] -= splitAmount;
-      });
+      if (expense.splitType === "equal") {
+        const splitAmount = expense.amount / expense.splitAmong.length;
+        
+        // 지불자는 전액 지불했으므로 플러스
+        memberBalances[expense.paidBy] += expense.amount;
+        
+        // 분담자들은 각자 분담금만큼 마이너스
+        expense.splitAmong.forEach(member => {
+          memberBalances[member] -= splitAmount;
+        });
+      } else if (expense.splitType === "custom" && expense.customSplits) {
+        // 지불자는 전액 지불했으므로 플러스
+        memberBalances[expense.paidBy] += expense.amount;
+        
+        // 분담자들은 각자 설정된 금액만큼 마이너스
+        Object.entries(expense.customSplits).forEach(([member, amount]) => {
+          memberBalances[member] -= amount;
+        });
+      }
     });
 
     return memberBalances;
   };
 
+  const calculateTransfers = () => {
+    const balances = calculateSettlement();
+    const transfers: { from: string; to: string; amount: number }[] = [];
+    
+    const debtors = Object.entries(balances).filter(([_, balance]) => balance < 0);
+    const creditors = Object.entries(balances).filter(([_, balance]) => balance > 0);
+    
+    debtors.forEach(([debtor, debt]) => {
+      creditors.forEach(([creditor, credit]) => {
+        if (Math.abs(debt) > 0 && credit > 0) {
+          const transferAmount = Math.min(Math.abs(debt), credit);
+          transfers.push({
+            from: debtor,
+            to: creditor,
+            amount: Math.round(transferAmount)
+          });
+          
+          balances[debtor] += transferAmount;
+          balances[creditor] -= transferAmount;
+        }
+      });
+    });
+    
+    return transfers.filter(t => t.amount > 0);
+  };
+
   const balances = calculateSettlement();
+  const transfers = calculateTransfers();
   const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
 
   const formatCurrency = (amount: number) => {
@@ -164,7 +265,7 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
                     새 지출
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-2xl">
                   <DialogHeader>
                     <DialogTitle>새 지출 추가</DialogTitle>
                   </DialogHeader>
@@ -207,6 +308,26 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
                     </div>
 
                     <div>
+                      <Label>분담 방식</Label>
+                      <div className="flex space-x-4 mt-2">
+                        <Button
+                          type="button"
+                          variant={newExpense.splitType === "equal" ? "default" : "outline"}
+                          onClick={() => setNewExpense({...newExpense, splitType: "equal"})}
+                        >
+                          1/n (균등분할)
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={newExpense.splitType === "custom" ? "default" : "outline"}
+                          onClick={() => setNewExpense({...newExpense, splitType: "custom"})}
+                        >
+                          개별 금액
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div>
                       <Label>분담자 선택</Label>
                       <div className="flex flex-wrap gap-2 mt-2">
                         {members.map(member => (
@@ -221,6 +342,30 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
                         ))}
                       </div>
                     </div>
+
+                    {newExpense.splitType === "custom" && (
+                      <div>
+                        <Label>개별 분담 금액</Label>
+                        <div className="space-y-2 mt-2">
+                          {newExpense.splitAmong.map(memberName => (
+                            <div key={memberName} className="flex items-center space-x-2">
+                              <span className="w-20 text-sm">{memberName}:</span>
+                              <Input
+                                type="number"
+                                placeholder="0"
+                                value={newExpense.customSplits[memberName] || ""}
+                                onChange={(e) => handleCustomSplitChange(memberName, e.target.value)}
+                                className="flex-1"
+                              />
+                              <span className="text-sm text-muted-foreground">원</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-2">
+                          총 분담금: {Object.values(newExpense.customSplits).reduce((sum, amount) => sum + (amount || 0), 0).toLocaleString()}원
+                        </div>
+                      </div>
+                    )}
 
                     <div className="flex space-x-2">
                       <Button onClick={handleAddExpense} className="flex-1">
@@ -278,6 +423,56 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
         </Card>
       </div>
 
+      {/* 송금 현황 */}
+      {transfers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>송금 현황</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {transfers.map((transfer, index) => {
+                const status = getPaymentStatus(transfer.from, transfer.to);
+                return (
+                  <div key={index} className="border rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium">{transfer.from}</span>
+                        <span className="text-muted-foreground">→</span>
+                        <span className="font-medium">{transfer.to}</span>
+                      </div>
+                      <span className="font-bold text-lg">{formatCurrency(transfer.amount)}</span>
+                    </div>
+                    
+                    <div className="flex space-x-2">
+                      <Button
+                        size="sm"
+                        variant={status?.sent ? "default" : "outline"}
+                        onClick={() => togglePaymentSent(transfer.from, transfer.to, transfer.amount)}
+                        className="flex items-center space-x-1"
+                      >
+                        {status?.sent ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                        <span>{status?.sent ? "보냈어요!" : "보내기"}</span>
+                      </Button>
+                      
+                      <Button
+                        size="sm"
+                        variant={status?.received ? "default" : "outline"}
+                        onClick={() => togglePaymentReceived(transfer.from, transfer.to, transfer.amount)}
+                        className="flex items-center space-x-1"
+                      >
+                        {status?.received ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                        <span>{status?.received ? "받았어요!" : "받기"}</span>
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 지출 내역 */}
       <Card>
         <CardHeader>
@@ -299,6 +494,9 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       분담자: {expense.splitAmong.join(', ')}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      분담 방식: {expense.splitType === "equal" ? "균등분할" : "개별금액"}
                     </p>
                   </div>
                   <div className="flex items-center space-x-3">
