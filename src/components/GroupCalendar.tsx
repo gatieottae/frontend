@@ -6,22 +6,34 @@ import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Calendar as CalendarIcon, Clock } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, Clock, Users } from "lucide-react";
 
 interface GroupCalendarProps {
   groupId: string;
 }
 
+interface Schedule {
+  id: string;
+  title: string;
+  date: Date;
+  time: string;
+  type: string;
+  availableMembers: string[];
+  allMembers: string[];
+}
+
 // 임시 일정 데이터
-const mockSchedules = [
+const mockSchedules: Schedule[] = [
   {
     id: "1",
     title: "제주도 도착",
     date: new Date(2025, 2, 15), // 3월 15일
     time: "10:00",
     type: "arrival",
-    availableMembers: ["김민수", "이지은"]
+    availableMembers: ["김민수", "이지은"],
+    allMembers: ["김민수", "이지은", "박정우", "최유리"]
   },
   {
     id: "2", 
@@ -29,13 +41,16 @@ const mockSchedules = [
     date: new Date(2025, 2, 16), // 3월 16일
     time: "06:00",
     type: "activity",
-    availableMembers: ["김민수", "박정우", "최유리"]
+    availableMembers: ["김민수", "박정우", "최유리"],
+    allMembers: ["김민수", "이지은", "박정우", "최유리"]
   }
 ];
 
+const allGroupMembers = ["김민수", "이지은", "박정우", "최유리"];
+
 const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [schedules, setSchedules] = useState(mockSchedules);
+  const [schedules, setSchedules] = useState<Schedule[]>(mockSchedules);
   const [isAddingSchedule, setIsAddingSchedule] = useState(false);
   const [newSchedule, setNewSchedule] = useState({
     title: "",
@@ -45,18 +60,34 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
 
   const handleAddSchedule = () => {
     if (selectedDate && newSchedule.title && newSchedule.time) {
-      const schedule = {
+      const schedule: Schedule = {
         id: Date.now().toString(),
         title: newSchedule.title,
         date: selectedDate,
         time: newSchedule.time,
         type: newSchedule.type,
-        availableMembers: ["김민수"] // 현재 사용자
+        availableMembers: ["김민수"], // 현재 사용자
+        allMembers: allGroupMembers
       };
       setSchedules([...schedules, schedule]);
       setNewSchedule({ title: "", time: "", type: "activity" });
       setIsAddingSchedule(false);
     }
+  };
+
+  const toggleParticipation = (scheduleId: string) => {
+    setSchedules(schedules.map(schedule => {
+      if (schedule.id === scheduleId) {
+        const isParticipating = schedule.availableMembers.includes("김민수");
+        return {
+          ...schedule,
+          availableMembers: isParticipating 
+            ? schedule.availableMembers.filter(member => member !== "김민수")
+            : [...schedule.availableMembers, "김민수"]
+        };
+      }
+      return schedule;
+    }));
   };
 
   const selectedDateSchedules = schedules.filter(
@@ -156,19 +187,47 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
             </p>
           ) : (
             <div className="space-y-4">
-              {selectedDateSchedules.map((schedule) => (
-                <div key={schedule.id} className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-medium">{schedule.title}</h3>
-                    <Badge className={`${getTypeColor(schedule.type)} text-white`}>
-                      {schedule.time}
-                    </Badge>
+              {selectedDateSchedules.map((schedule) => {
+                const isParticipating = schedule.availableMembers.includes("김민수");
+                const participantCount = schedule.availableMembers.length;
+                const totalCount = schedule.allMembers.length;
+                
+                return (
+                  <div key={schedule.id} className="border rounded-lg p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-medium">{schedule.title}</h3>
+                      <Badge className={`${getTypeColor(schedule.type)} text-white`}>
+                        {schedule.time}
+                      </Badge>
+                    </div>
+                    
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                        <Users className="h-4 w-4" />
+                        <span>{participantCount}/{totalCount} 참여</span>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`participate-${schedule.id}`}
+                          checked={isParticipating}
+                          onCheckedChange={() => toggleParticipation(schedule.id)}
+                        />
+                        <Label 
+                          htmlFor={`participate-${schedule.id}`}
+                          className="text-sm cursor-pointer"
+                        >
+                          참여하기
+                        </Label>
+                      </div>
+                    </div>
+                    
+                    <div className="text-sm text-muted-foreground">
+                      참여자: {schedule.availableMembers.join(", ") || "없음"}
+                    </div>
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    참여 가능: {schedule.availableMembers.join(", ")}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

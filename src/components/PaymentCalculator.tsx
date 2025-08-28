@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Calculator, Plus, Trash2, DollarSign } from "lucide-react";
 
 interface PaymentCalculatorProps {
@@ -44,6 +45,7 @@ const mockExpenses: Expense[] = [
 
 const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
   const [expenses, setExpenses] = useState<Expense[]>(mockExpenses);
+  const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [newExpense, setNewExpense] = useState({
     title: "",
     amount: "",
@@ -68,6 +70,7 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
         paidBy: members[0]?.name || "",
         splitAmong: members.map(m => m.name)
       });
+      setIsAddingExpense(false);
     }
   };
 
@@ -146,71 +149,96 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* 지출 추가 */}
+        {/* 지출 추가 버튼 */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Plus className="h-5 w-5" />
-              <span>지출 추가</span>
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center space-x-2">
+                <Plus className="h-5 w-5" />
+                <span>지출 추가</span>
+              </span>
+              <Dialog open={isAddingExpense} onOpenChange={setIsAddingExpense}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    새 지출
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>새 지출 추가</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="expense-title">지출 내역</Label>
+                      <Input
+                        id="expense-title"
+                        value={newExpense.title}
+                        onChange={(e) => setNewExpense({...newExpense, title: e.target.value})}
+                        placeholder="예: 숙소 예약, 식사 등"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="expense-amount">금액</Label>
+                      <Input
+                        id="expense-amount"
+                        type="number"
+                        value={newExpense.amount}
+                        onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
+                        placeholder="0"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="paid-by">지불자</Label>
+                      <select
+                        id="paid-by"
+                        value={newExpense.paidBy}
+                        onChange={(e) => setNewExpense({...newExpense, paidBy: e.target.value})}
+                        className="w-full p-2 border border-input rounded-md bg-background"
+                      >
+                        {members.map(member => (
+                          <option key={member.id} value={member.name}>
+                            {member.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <Label>분담자 선택</Label>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {members.map(member => (
+                          <Badge
+                            key={member.id}
+                            variant={newExpense.splitAmong.includes(member.name) ? "default" : "outline"}
+                            className="cursor-pointer"
+                            onClick={() => toggleMemberInSplit(member.name)}
+                          >
+                            {member.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex space-x-2">
+                      <Button onClick={handleAddExpense} className="flex-1">
+                        추가
+                      </Button>
+                      <Button variant="outline" onClick={() => setIsAddingExpense(false)} className="flex-1">
+                        취소
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="expense-title">지출 내역</Label>
-              <Input
-                id="expense-title"
-                value={newExpense.title}
-                onChange={(e) => setNewExpense({...newExpense, title: e.target.value})}
-                placeholder="예: 숙소 예약, 식사 등"
-              />
-            </div>
-            
-            <div>
-              <Label htmlFor="expense-amount">금액</Label>
-              <Input
-                id="expense-amount"
-                type="number"
-                value={newExpense.amount}
-                onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
-                placeholder="0"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="paid-by">지불자</Label>
-              <select
-                id="paid-by"
-                value={newExpense.paidBy}
-                onChange={(e) => setNewExpense({...newExpense, paidBy: e.target.value})}
-                className="w-full p-2 border border-input rounded-md bg-background"
-              >
-                {members.map(member => (
-                  <option key={member.id} value={member.name}>
-                    {member.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <Label>분담자 선택</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {members.map(member => (
-                  <Badge
-                    key={member.id}
-                    variant={newExpense.splitAmong.includes(member.name) ? "default" : "outline"}
-                    className="cursor-pointer"
-                    onClick={() => toggleMemberInSplit(member.name)}
-                  >
-                    {member.name}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-
-            <Button onClick={handleAddExpense} className="w-full">
-              지출 추가
-            </Button>
+          <CardContent>
+            <p className="text-muted-foreground text-center py-8">
+              새 지출 버튼을 클릭하여 지출을 추가하세요.
+            </p>
           </CardContent>
         </Card>
 

@@ -49,6 +49,7 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
   const [newVote, setNewVote] = useState({
     title: "",
     description: "",
+    endDate: "",
     options: ["", ""]
   });
 
@@ -76,13 +77,13 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
   };
 
   const handleCreateVote = () => {
-    if (newVote.title && newVote.options.every(opt => opt.trim())) {
+    if (newVote.title && newVote.endDate && newVote.options.every(opt => opt.trim())) {
       const vote = {
         id: Date.now().toString(),
         title: newVote.title,
         description: newVote.description,
         status: "active" as const,
-        endDate: "2025-03-20",
+        endDate: newVote.endDate,
         options: newVote.options.map((text, index) => ({
           id: (index + 1).toString(),
           text: text.trim(),
@@ -93,7 +94,7 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
         myVote: null
       };
       setVotes([vote, ...votes]);
-      setNewVote({ title: "", description: "", options: ["", ""] });
+      setNewVote({ title: "", description: "", endDate: "", options: ["", ""] });
       setIsCreatingVote(false);
     }
   };
@@ -110,6 +111,10 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
 
   const getStatusColor = (status: string) => {
     return status === "active" ? "bg-green-500" : "bg-gray-500";
+  };
+
+  const isVoteExpired = (endDate: string) => {
+    return new Date(endDate) < new Date();
   };
 
   return (
@@ -148,6 +153,15 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
                 />
               </div>
               <div>
+                <Label htmlFor="vote-enddate">마감일</Label>
+                <Input
+                  id="vote-enddate"
+                  type="date"
+                  value={newVote.endDate}
+                  onChange={(e) => setNewVote({...newVote, endDate: e.target.value})}
+                />
+              </div>
+              <div>
                 <Label>선택지</Label>
                 {newVote.options.map((option, index) => (
                   <Input
@@ -177,66 +191,74 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
 
       {/* 투표 목록 */}
       <div className="space-y-4">
-        {votes.map((vote) => (
-          <Card key={vote.id}>
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Vote className="h-5 w-5" />
-                    <span>{vote.title}</span>
-                  </CardTitle>
-                  {vote.description && (
-                    <p className="text-muted-foreground mt-1">{vote.description}</p>
-                  )}
-                </div>
-                <div className="text-right">
-                  <Badge className={`${getStatusColor(vote.status)} text-white mb-2`}>
-                    {vote.status === "active" ? "진행 중" : "종료됨"}
-                  </Badge>
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <Clock className="h-4 w-4 mr-1" />
-                    {vote.endDate}
+        {votes.map((vote) => {
+          const expired = isVoteExpired(vote.endDate);
+          const currentStatus = expired ? "ended" : vote.status;
+          
+          return (
+            <Card key={vote.id}>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Vote className="h-5 w-5" />
+                      <span>{vote.title}</span>
+                    </CardTitle>
+                    {vote.description && (
+                      <p className="text-muted-foreground mt-1">{vote.description}</p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <Badge className={`${getStatusColor(currentStatus)} text-white mb-2`}>
+                      {currentStatus === "active" ? "진행 중" : "종료됨"}
+                    </Badge>
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <Clock className="h-4 w-4 mr-1" />
+                      {vote.endDate}
+                    </div>
+                    {expired && (
+                      <div className="text-xs text-red-500 mt-1">마감됨</div>
+                    )}
                   </div>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {vote.options.map((option) => {
-                  const percentage = vote.totalVoters > 0 ? (option.votes / vote.totalVoters) * 100 : 0;
-                  const isMyVote = vote.myVote === option.id;
-                  
-                  return (
-                    <div
-                      key={option.id}
-                      className={`border rounded-lg p-3 cursor-pointer transition-colors ${
-                        vote.status === "active" ? "hover:bg-muted/50" : ""
-                      } ${isMyVote ? "border-primary bg-primary/5" : ""}`}
-                      onClick={() => vote.status === "active" && handleVote(vote.id, option.id)}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium flex items-center">
-                          {option.text}
-                          {isMyVote && <CheckCircle className="h-4 w-4 ml-2 text-primary" />}
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                          {option.votes}표 ({percentage.toFixed(0)}%)
-                        </span>
-                      </div>
-                      <Progress value={percentage} className="h-2" />
-                      {option.voters.length > 0 && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {option.voters.join(", ")}
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {vote.options.map((option) => {
+                    const percentage = vote.totalVoters > 0 ? (option.votes / vote.totalVoters) * 100 : 0;
+                    const isMyVote = vote.myVote === option.id;
+                    
+                    return (
+                      <div
+                        key={option.id}
+                        className={`border rounded-lg p-3 cursor-pointer transition-colors ${
+                          currentStatus === "active" ? "hover:bg-muted/50" : ""
+                        } ${isMyVote ? "border-primary bg-primary/5" : ""}`}
+                        onClick={() => currentStatus === "active" && handleVote(vote.id, option.id)}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium flex items-center">
+                            {option.text}
+                            {isMyVote && <CheckCircle className="h-4 w-4 ml-2 text-primary" />}
+                          </span>
+                          <span className="text-sm text-muted-foreground">
+                            {option.votes}표 ({percentage.toFixed(0)}%)
+                          </span>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                        <Progress value={percentage} className="h-2" />
+                        {option.voters.length > 0 && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {option.voters.join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

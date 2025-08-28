@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, MessageCircle } from "lucide-react";
+import { Send, MessageCircle, Bell, BellOff } from "lucide-react";
 
 interface GroupChatProps {
   groupId: string;
@@ -53,10 +53,14 @@ const mockMessages: Message[] = [
 const GroupChat = ({ groupId }: GroupChatProps) => {
   const [messages, setMessages] = useState<Message[]>(mockMessages);
   const [newMessage, setNewMessage] = useState("");
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
   useEffect(() => {
@@ -74,6 +78,25 @@ const GroupChat = ({ groupId }: GroupChatProps) => {
       };
       setMessages([...messages, message]);
       setNewMessage("");
+      
+      // 새 메시지 알림
+      if (notificationsEnabled && 'Notification' in window) {
+        if (Notification.permission === 'granted') {
+          new Notification('새 메시지', {
+            body: newMessage.trim(),
+            icon: '/favicon.ico'
+          });
+        } else if (Notification.permission !== 'denied') {
+          Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+              new Notification('새 메시지', {
+                body: newMessage.trim(),
+                icon: '/favicon.ico'
+              });
+            }
+          });
+        }
+      }
     }
   };
 
@@ -81,6 +104,20 @@ const GroupChat = ({ groupId }: GroupChatProps) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
+    }
+  };
+
+  const toggleNotifications = () => {
+    if (!notificationsEnabled) {
+      if ('Notification' in window && Notification.permission !== 'granted') {
+        Notification.requestPermission().then(permission => {
+          setNotificationsEnabled(permission === 'granted');
+        });
+      } else {
+        setNotificationsEnabled(true);
+      }
+    } else {
+      setNotificationsEnabled(false);
     }
   };
 
@@ -115,15 +152,33 @@ const GroupChat = ({ groupId }: GroupChatProps) => {
   return (
     <Card className="h-[600px] flex flex-col">
       <CardHeader className="flex-shrink-0">
-        <CardTitle className="flex items-center space-x-2">
-          <MessageCircle className="h-5 w-5" />
-          <span>그룹 채팅</span>
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <MessageCircle className="h-5 w-5" />
+            <span>그룹 채팅</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleNotifications}
+            className={notificationsEnabled ? "text-primary" : "text-muted-foreground"}
+          >
+            {notificationsEnabled ? (
+              <Bell className="h-4 w-4" />
+            ) : (
+              <BellOff className="h-4 w-4" />
+            )}
+          </Button>
         </CardTitle>
       </CardHeader>
       
       <CardContent className="flex-1 flex flex-col p-0">
         {/* 메시지 목록 */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div 
+          ref={messagesContainerRef}
+          className="flex-1 overflow-y-auto p-4 space-y-4"
+          style={{ maxHeight: 'calc(600px - 140px)' }}
+        >
           {messages.map((message, index) => {
             const showDate = index === 0 || 
               formatDate(message.timestamp) !== formatDate(messages[index - 1].timestamp);
@@ -177,7 +232,7 @@ const GroupChat = ({ groupId }: GroupChatProps) => {
         </div>
         
         {/* 메시지 입력 */}
-        <div className="border-t p-4">
+        <div className="border-t p-4 flex-shrink-0">
           <div className="flex space-x-2">
             <Input
               value={newMessage}

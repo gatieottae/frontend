@@ -1,10 +1,10 @@
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* 같이어때 디자인 시스템 */
-
+/* CSS 변수 정의 */
 @layer base {
   :root {
     --background: 255 255 255;
@@ -49,107 +49,153 @@
   }
 
   .dark {
-    --background: 15 23 42;
-    --foreground: 248 250 252;
+    --background: 34 34 34;
+    --foreground: 255 255 255;
 
-    --card: 30 41 59;
-    --card-foreground: 248 250 252;
+    --card: 34 34 34;
+    --card-foreground: 255 255 255;
 
-    --popover: 30 41 59;
-    --popover-foreground: 248 250 252;
+    --popover: 34 34 34;
+    --popover-foreground: 255 255 255;
 
     --primary: 34 197 94;
-    --primary-foreground: 15 23 42;
+    --primary-foreground: 34 34 34;
 
-    --secondary: 22 101 52;
-    --secondary-foreground: 220 252 231;
+    --secondary: 75 85 99;
+    --secondary-foreground: 255 255 255;
 
-    --muted: 51 65 85;
-    --muted-foreground: 148 163 184;
+    --muted: 75 85 99;
+    --muted-foreground: 156 163 175;
 
     --accent: 34 197 94;
-    --accent-foreground: 15 23 42;
+    --accent-foreground: 34 34 34;
 
     --destructive: 239 68 68;
     --destructive-foreground: 255 255 255;
 
-    --border: 51 65 85;
-    --input: 51 65 85;
+    --border: 75 85 99;
+    --input: 75 85 99;
     --ring: 34 197 94;
+
+    /* 사이드바 다크 모드 */
+    --sidebar-background: 34 34 34;
+    --sidebar-foreground: 255 255 255;
+    --sidebar-primary: 34 197 94;
+    --sidebar-primary-foreground: 34 34 34;
+    --sidebar-accent: 75 85 99;
+    --sidebar-accent-foreground: 255 255 255;
+    --sidebar-border: 75 85 99;
+    --sidebar-ring: 34 197 94;
   }
 }
 
+/* 기본 스타일 */
 @layer base {
   * {
     @apply border-border;
   }
-
+  
   body {
-    @apply bg-background text-foreground font-sans;
-    min-height: 100vh;
-  }
-
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-bold tracking-tight text-foreground;
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 }
 
-@layer components {
-  .btn-primary {
-    @apply bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200;
-  }
-
-  .btn-gradient {
-    @apply bg-gradient-to-r from-primary to-emerald-400 text-foreground hover:from-primary/90 hover:to-emerald-400/90 transition-all duration-200;
-  }
-
-  .card-hover {
-    @apply transition-all duration-300 hover:scale-[1.02] hover:shadow-lg;
-  }
-
+/* 유틸리티 클래스 */
+@layer utilities {
   .gradient-text {
-    @apply bg-gradient-to-r from-primary to-emerald-400 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
   }
-
-  .animate-float {
-    animation: float 6s ease-in-out infinite;
+  
+  .story-link {
+    @apply relative inline-block after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-0.5 after:bottom-0 after:left-0 after:bg-primary after:origin-bottom-right after:transition-transform after:duration-300 hover:after:scale-x-100 hover:after:origin-bottom-left;
   }
-
-  .animate-fade-in {
-    animation: fadeIn 0.6s ease-out forwards;
+  
+  .hover-scale {
+    @apply transition-transform duration-200 hover:scale-105;
   }
+}
 
-  .animate-slide-up {
-    animation: slideUp 0.8s ease-out forwards;
+/* 커스텀 애니메이션 */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
   }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
-  .animate-text-change {
-    animation: textChange 0.5s ease-in-out;
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-20px); }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes slideUp {
-  from { 
-    opacity: 0; 
-    transform: translateY(30px); 
+  0%, 100% {
+    transform: translateY(0px);
   }
-  to { 
-    opacity: 1; 
-    transform: translateY(0); 
+  50% {
+    transform: translateY(-10px);
   }
 }
 
-@keyframes textChange {
-  0% { opacity: 0; transform: translateY(-10px); }
-  100% { opacity: 1; transform: translateY(0); }
+@keyframes text-cycle {
+  0%, 20% {
+    opacity: 1;
+  }
+  25%, 95% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.8s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.6s ease-out;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-text-cycle {
+  animation: text-cycle 8s infinite;
+}
+
+/* 메인 텍스트 스타일 (검정색으로 고정) */
+.main-text {
+  color: #222222 !important;
+}
+
+/* 텍스트 순환 애니메이션 */
+.cycling-text {
+  position: relative;
+  display: inline-block;
+}
+
+.cycling-text span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  transition: opacity 0.5s ease-in-out;
+}
+
+.cycling-text span.active {
+  opacity: 1;
+  position: relative;
 }
