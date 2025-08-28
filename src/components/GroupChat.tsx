@@ -172,12 +172,11 @@ const GroupChat = ({ groupId }: GroupChatProps) => {
         </CardTitle>
       </CardHeader>
       
-      <CardContent className="flex-1 flex flex-col p-0">
+      <CardContent className="flex-1 flex flex-col p-0 overflow-y-hidden">
         {/* 메시지 목록 */}
         <div 
           ref={messagesContainerRef}
           className="flex-1 overflow-y-auto p-4 space-y-4"
-          style={{ maxHeight: 'calc(600px - 140px)' }}
         >
           {messages.map((message, index) => {
             const showDate = index === 0 || 
