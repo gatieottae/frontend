@@ -8,13 +8,13 @@
 @layer base {
   :root {
     --background: 248 250 252;
-    --foreground: 15 23 42;
+    --foreground: 30 41 59;
 
     --card: 255 255 255;
-    --card-foreground: 15 23 42;
+    --card-foreground: 30 41 59;
 
     --popover: 255 255 255;
-    --popover-foreground: 15 23 42;
+    --popover-foreground: 30 41 59;
 
     --primary: 59 130 246;
     --primary-foreground: 255 255 255;
@@ -23,7 +23,7 @@
     --secondary-foreground: 51 65 85;
 
     --muted: 248 250 252;
-    --muted-foreground: 100 116 139;
+    --muted-foreground: 71 85 105;
 
     --accent: 59 130 246;
     --accent-foreground: 255 255 255;
@@ -39,7 +39,7 @@
 
     /* 사이드바 */
     --sidebar-background: 248 250 252;
-    --sidebar-foreground: 15 23 42;
+    --sidebar-foreground: 30 41 59;
     --sidebar-primary: 59 130 246;
     --sidebar-primary-foreground: 255 255 255;
     --sidebar-accent: 241 245 249;
