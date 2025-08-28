@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calculator, Plus, Trash2, DollarSign } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
 interface PaymentCalculatorProps {
   groupId: string;
@@ -51,11 +50,9 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
     paidBy: members[0]?.name || "",
     splitAmong: members.map(m => m.name)
   });
-  const [showAddForm, setShowAddForm] = useState(false);
-  const { toast } = useToast();
 
   const handleAddExpense = () => {
-    if (newExpense.title && newExpense.amount && newExpense.paidBy && newExpense.splitAmong.length > 0) {
+    if (newExpense.title && newExpense.amount && newExpense.paidBy) {
       const expense: Expense = {
         id: Date.now().toString(),
         title: newExpense.title,
@@ -71,31 +68,11 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
         paidBy: members[0]?.name || "",
         splitAmong: members.map(m => m.name)
       });
-      setShowAddForm(false);
-      
-      toast({
-        title: "지출 추가 완료",
-        description: `${expense.title} - ${formatCurrency(expense.amount)}이 추가되었습니다.`,
-      });
-    } else {
-      toast({
-        title: "입력 오류",
-        description: "모든 필드를 올바르게 입력해주세요.",
-        variant: "destructive",
-      });
     }
   };
 
   const handleDeleteExpense = (expenseId: string) => {
-    const expenseToDelete = expenses.find(exp => exp.id === expenseId);
     setExpenses(expenses.filter(exp => exp.id !== expenseId));
-    
-    if (expenseToDelete) {
-      toast({
-        title: "지출 삭제 완료",
-        description: `${expenseToDelete.title}이 삭제되었습니다.`,
-      });
-    }
   };
 
   const toggleMemberInSplit = (memberName: string) => {
@@ -146,14 +123,14 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
         <Card>
           <CardContent className="p-4 text-center">
             <DollarSign className="h-8 w-8 mx-auto mb-2 text-primary" />
-            <p className="text-2xl font-bold text-foreground">{formatCurrency(totalExpenses)}</p>
+            <p className="text-2xl font-bold">{formatCurrency(totalExpenses)}</p>
             <p className="text-sm text-muted-foreground">총 지출</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Calculator className="h-8 w-8 mx-auto mb-2 text-primary" />
-            <p className="text-2xl font-bold text-foreground">{expenses.length}개</p>
+            <p className="text-2xl font-bold">{expenses.length}개</p>
             <p className="text-sm text-muted-foreground">지출 항목</p>
           </CardContent>
         </Card>
@@ -162,7 +139,7 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
             <div className="h-8 w-8 mx-auto mb-2 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold">
               {members.length}
             </div>
-            <p className="text-2xl font-bold text-foreground">{formatCurrency(totalExpenses / members.length)}</p>
+            <p className="text-2xl font-bold">{formatCurrency(totalExpenses / members.length)}</p>
             <p className="text-sm text-muted-foreground">1인당 평균</p>
           </CardContent>
         </Card>
@@ -172,86 +149,75 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
         {/* 지출 추가 */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span className="flex items-center space-x-2">
-                <Plus className="h-5 w-5" />
-                <span className="text-foreground">지출 추가</span>
-              </span>
-              <Button 
-                variant={showAddForm ? "outline" : "default"}
-                size="sm"
-                onClick={() => setShowAddForm(!showAddForm)}
-              >
-                {showAddForm ? "취소" : "추가"}
-              </Button>
+            <CardTitle className="flex items-center space-x-2">
+              <Plus className="h-5 w-5" />
+              <span>지출 추가</span>
             </CardTitle>
           </CardHeader>
-          {showAddForm && (
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="expense-title">지출 내역</Label>
-                <Input
-                  id="expense-title"
-                  value={newExpense.title}
-                  onChange={(e) => setNewExpense({...newExpense, title: e.target.value})}
-                  placeholder="예: 숙소 예약, 식사 등"
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="expense-amount">금액</Label>
-                <Input
-                  id="expense-amount"
-                  type="number"
-                  value={newExpense.amount}
-                  onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
-                  placeholder="0"
-                />
-              </div>
+          <CardContent className="space-y-4">
+            <div>
+              <Label htmlFor="expense-title">지출 내역</Label>
+              <Input
+                id="expense-title"
+                value={newExpense.title}
+                onChange={(e) => setNewExpense({...newExpense, title: e.target.value})}
+                placeholder="예: 숙소 예약, 식사 등"
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="expense-amount">금액</Label>
+              <Input
+                id="expense-amount"
+                type="number"
+                value={newExpense.amount}
+                onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
+                placeholder="0"
+              />
+            </div>
 
-              <div>
-                <Label htmlFor="paid-by">지불자</Label>
-                <select
-                  id="paid-by"
-                  value={newExpense.paidBy}
-                  onChange={(e) => setNewExpense({...newExpense, paidBy: e.target.value})}
-                  className="w-full p-2 border border-input rounded-md bg-background text-foreground"
-                >
-                  {members.map(member => (
-                    <option key={member.id} value={member.name}>
-                      {member.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div>
+              <Label htmlFor="paid-by">지불자</Label>
+              <select
+                id="paid-by"
+                value={newExpense.paidBy}
+                onChange={(e) => setNewExpense({...newExpense, paidBy: e.target.value})}
+                className="w-full p-2 border border-input rounded-md bg-background"
+              >
+                {members.map(member => (
+                  <option key={member.id} value={member.name}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              <div>
-                <Label>분담자 선택</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {members.map(member => (
-                    <Badge
-                      key={member.id}
-                      variant={newExpense.splitAmong.includes(member.name) ? "default" : "outline"}
-                      className="cursor-pointer"
-                      onClick={() => toggleMemberInSplit(member.name)}
-                    >
-                      {member.name}
-                    </Badge>
-                  ))}
-                </div>
+            <div>
+              <Label>분담자 선택</Label>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {members.map(member => (
+                  <Badge
+                    key={member.id}
+                    variant={newExpense.splitAmong.includes(member.name) ? "default" : "outline"}
+                    className="cursor-pointer"
+                    onClick={() => toggleMemberInSplit(member.name)}
+                  >
+                    {member.name}
+                  </Badge>
+                ))}
               </div>
+            </div>
 
-              <Button onClick={handleAddExpense} className="w-full">
-                지출 추가
-              </Button>
-            </CardContent>
-          )}
+            <Button onClick={handleAddExpense} className="w-full">
+              지출 추가
+            </Button>
+          </CardContent>
         </Card>
 
         {/* 정산 현황 */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-foreground">정산 현황</CardTitle>
+            <CardTitle>정산 현황</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -266,7 +232,7 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
                         <AvatarImage src={member.avatar} />
                         <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
                       </Avatar>
-                      <span className="font-medium text-foreground">{member.name}</span>
+                      <span className="font-medium">{member.name}</span>
                     </div>
                     <div className="text-right">
                       <p className={`font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
@@ -287,7 +253,7 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
       {/* 지출 내역 */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-foreground">지출 내역</CardTitle>
+          <CardTitle>지출 내역</CardTitle>
         </CardHeader>
         <CardContent>
           {expenses.length === 0 ? (
@@ -299,7 +265,7 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
               {expenses.map(expense => (
                 <div key={expense.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div>
-                    <h4 className="font-medium text-foreground">{expense.title}</h4>
+                    <h4 className="font-medium">{expense.title}</h4>
                     <p className="text-sm text-muted-foreground">
                       {expense.paidBy}가 지불 • {expense.date}
                     </p>
@@ -308,7 +274,7 @@ const PaymentCalculator = ({ groupId, members }: PaymentCalculatorProps) => {
                     </p>
                   </div>
                   <div className="flex items-center space-x-3">
-                    <span className="font-bold text-foreground">{formatCurrency(expense.amount)}</span>
+                    <span className="font-bold">{formatCurrency(expense.amount)}</span>
                     <Button
                       variant="ghost"
                       size="icon"

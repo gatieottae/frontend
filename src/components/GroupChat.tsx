@@ -4,8 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, MessageCircle, Bell } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Send, MessageCircle } from "lucide-react";
 
 interface GroupChatProps {
   groupId: string;
@@ -54,10 +53,7 @@ const mockMessages: Message[] = [
 const GroupChat = ({ groupId }: GroupChatProps) => {
   const [messages, setMessages] = useState<Message[]>(mockMessages);
   const [newMessage, setNewMessage] = useState("");
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -66,20 +62,6 @@ const GroupChat = ({ groupId }: GroupChatProps) => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  // 스크롤 위치 자동 조정 방지
-  const handleScroll = () => {
-    const container = messagesContainerRef.current;
-    if (container) {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      const isAtBottom = scrollHeight - scrollTop <= clientHeight + 5;
-      
-      if (!isAtBottom) {
-        // 사용자가 스크롤을 위로 올렸을 때는 자동 스크롤하지 않음
-        return;
-      }
-    }
-  };
 
   const handleSendMessage = () => {
     if (newMessage.trim()) {
@@ -92,16 +74,6 @@ const GroupChat = ({ groupId }: GroupChatProps) => {
       };
       setMessages([...messages, message]);
       setNewMessage("");
-      
-      // 알림 기능 시뮬레이션
-      if (notificationsEnabled) {
-        setTimeout(() => {
-          toast({
-            title: "새 메시지",
-            description: `${message.sender}: ${message.content}`,
-          });
-        }, 100);
-      }
     }
   };
 
@@ -110,14 +82,6 @@ const GroupChat = ({ groupId }: GroupChatProps) => {
       e.preventDefault();
       handleSendMessage();
     }
-  };
-
-  const toggleNotifications = () => {
-    setNotificationsEnabled(!notificationsEnabled);
-    toast({
-      title: notificationsEnabled ? "알림 끄기" : "알림 켜기",
-      description: notificationsEnabled ? "채팅 알림이 비활성화되었습니다." : "채팅 알림이 활성화되었습니다.",
-    });
   };
 
   const formatTime = (date: Date) => {
@@ -151,29 +115,15 @@ const GroupChat = ({ groupId }: GroupChatProps) => {
   return (
     <Card className="h-[600px] flex flex-col">
       <CardHeader className="flex-shrink-0">
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <MessageCircle className="h-5 w-5" />
-            <span className="text-foreground">그룹 채팅</span>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleNotifications}
-            className={notificationsEnabled ? "text-primary" : "text-muted-foreground"}
-          >
-            <Bell className="h-4 w-4" />
-          </Button>
+        <CardTitle className="flex items-center space-x-2">
+          <MessageCircle className="h-5 w-5" />
+          <span>그룹 채팅</span>
         </CardTitle>
       </CardHeader>
       
       <CardContent className="flex-1 flex flex-col p-0">
         {/* 메시지 목록 */}
-        <div 
-          ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto p-4 space-y-4"
-          onScroll={handleScroll}
-        >
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map((message, index) => {
             const showDate = index === 0 || 
               formatDate(message.timestamp) !== formatDate(messages[index - 1].timestamp);
@@ -210,7 +160,7 @@ const GroupChat = ({ groupId }: GroupChatProps) => {
                     <div className={`rounded-lg px-3 py-2 ${
                       message.isMe 
                         ? "bg-primary text-primary-foreground ml-auto" 
-                        : "bg-muted text-foreground"
+                        : "bg-muted"
                     }`}>
                       <p className="text-sm">{message.content}</p>
                     </div>

@@ -7,8 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Calendar as CalendarIcon, Clock, Users, UserCheck } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Plus, Calendar as CalendarIcon, Clock } from "lucide-react";
 
 interface GroupCalendarProps {
   groupId: string;
@@ -22,8 +21,7 @@ const mockSchedules = [
     date: new Date(2025, 2, 15), // 3월 15일
     time: "10:00",
     type: "arrival",
-    availableMembers: ["김민수", "이지은"],
-    allMembers: ["김민수", "이지은", "박정우", "최유리"]
+    availableMembers: ["김민수", "이지은"]
   },
   {
     id: "2", 
@@ -31,8 +29,7 @@ const mockSchedules = [
     date: new Date(2025, 2, 16), // 3월 16일
     time: "06:00",
     type: "activity",
-    availableMembers: ["김민수", "박정우", "최유리"],
-    allMembers: ["김민수", "이지은", "박정우", "최유리"]
+    availableMembers: ["김민수", "박정우", "최유리"]
   }
 ];
 
@@ -45,7 +42,6 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
     time: "",
     type: "activity"
   });
-  const { toast } = useToast();
 
   const handleAddSchedule = () => {
     if (selectedDate && newSchedule.title && newSchedule.time) {
@@ -55,47 +51,12 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
         date: selectedDate,
         time: newSchedule.time,
         type: newSchedule.type,
-        availableMembers: ["김민수"], // 현재 사용자
-        allMembers: ["김민수", "이지은", "박정우", "최유리"]
+        availableMembers: ["김민수"] // 현재 사용자
       };
       setSchedules([...schedules, schedule]);
       setNewSchedule({ title: "", time: "", type: "activity" });
       setIsAddingSchedule(false);
-      
-      toast({
-        title: "일정 추가 완료",
-        description: "새로운 일정이 추가되었습니다.",
-      });
     }
-  };
-
-  const handleJoinSchedule = (scheduleId: string) => {
-    setSchedules(schedules.map(schedule => {
-      if (schedule.id === scheduleId) {
-        const isAlreadyJoined = schedule.availableMembers.includes("김민수");
-        
-        if (isAlreadyJoined) {
-          return {
-            ...schedule,
-            availableMembers: schedule.availableMembers.filter(member => member !== "김민수")
-          };
-        } else {
-          return {
-            ...schedule,
-            availableMembers: [...schedule.availableMembers, "김민수"]
-          };
-        }
-      }
-      return schedule;
-    }));
-
-    const schedule = schedules.find(s => s.id === scheduleId);
-    const isJoining = !schedule?.availableMembers.includes("김민수");
-    
-    toast({
-      title: isJoining ? "일정 참여" : "일정 참여 취소",
-      description: isJoining ? "일정에 참여하였습니다." : "일정 참여를 취소하였습니다.",
-    });
   };
 
   const selectedDateSchedules = schedules.filter(
@@ -120,7 +81,7 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
           <CardTitle className="flex items-center justify-between">
             <span className="flex items-center space-x-2">
               <CalendarIcon className="h-5 w-5" />
-              <span className="text-foreground">일정 캘린더</span>
+              <span>일정 캘린더</span>
             </span>
             <Dialog open={isAddingSchedule} onOpenChange={setIsAddingSchedule}>
               <DialogTrigger asChild>
@@ -180,7 +141,7 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Clock className="h-5 w-5" />
-            <span className="text-foreground">
+            <span>
               {selectedDate 
                 ? `${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일 일정`
                 : "날짜를 선택하세요"
@@ -195,43 +156,19 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
             </p>
           ) : (
             <div className="space-y-4">
-              {selectedDateSchedules.map((schedule) => {
-                const isJoined = schedule.availableMembers.includes("김민수");
-                const participationRate = (schedule.availableMembers.length / schedule.allMembers.length) * 100;
-                
-                return (
-                  <div key={schedule.id} className="border rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <h3 className="font-medium text-foreground">{schedule.title}</h3>
-                      <Badge className={`${getTypeColor(schedule.type)} text-white`}>
-                        {schedule.time}
-                      </Badge>
-                    </div>
-                    
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                        <Users className="h-4 w-4" />
-                        <span>{schedule.availableMembers.length}/{schedule.allMembers.length} 참여</span>
-                        <span>({participationRate.toFixed(0)}%)</span>
-                      </div>
-                      
-                      <Button
-                        variant={isJoined ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleJoinSchedule(schedule.id)}
-                        className="flex items-center space-x-1"
-                      >
-                        <UserCheck className="h-4 w-4" />
-                        <span>{isJoined ? "참여 취소" : "참여하기"}</span>
-                      </Button>
-                    </div>
-                    
-                    <div className="text-sm text-muted-foreground">
-                      참여자: {schedule.availableMembers.join(", ")}
-                    </div>
+              {selectedDateSchedules.map((schedule) => (
+                <div key={schedule.id} className="border rounded-lg p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-medium">{schedule.title}</h3>
+                    <Badge className={`${getTypeColor(schedule.type)} text-white`}>
+                      {schedule.time}
+                    </Badge>
                   </div>
-                );
-              })}
+                  <div className="text-sm text-muted-foreground">
+                    참여 가능: {schedule.availableMembers.join(", ")}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
