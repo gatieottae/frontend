@@ -16,7 +16,7 @@
     --popover: 255 255 255;
     --popover-foreground: 15 23 42;
 
-    --primary: 245 101 101;
+    --primary: 59 130 246;
     --primary-foreground: 255 255 255;
 
     --secondary: 241 245 249;
@@ -33,19 +33,19 @@
 
     --border: 226 232 240;
     --input: 226 232 240;
-    --ring: 245 101 101;
+    --ring: 59 130 246;
 
     --radius: 0.75rem;
 
-    /* 커스텀 색상 */
-    --gradient-primary: linear-gradient(135deg, hsl(14 91% 65%) 0%, hsl(329 86% 70%) 100%);
-    --gradient-secondary: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(329 86% 70%) 100%);
-    --gradient-card: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%);
-    
-    /* 그림자 */
-    --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    --shadow-primary: 0 4px 14px 0 rgba(245, 101, 101, 0.25);
+    /* 사이드바 */
+    --sidebar-background: 248 250 252;
+    --sidebar-foreground: 15 23 42;
+    --sidebar-primary: 59 130 246;
+    --sidebar-primary-foreground: 255 255 255;
+    --sidebar-accent: 241 245 249;
+    --sidebar-accent-foreground: 51 65 85;
+    --sidebar-border: 226 232 240;
+    --sidebar-ring: 59 130 246;
   }
 
   .dark {
@@ -58,7 +58,7 @@
     --popover: 30 41 59;
     --popover-foreground: 248 250 252;
 
-    --primary: 245 101 101;
+    --primary: 59 130 246;
     --primary-foreground: 255 255 255;
 
     --secondary: 51 65 85;
@@ -75,7 +75,7 @@
 
     --border: 51 65 85;
     --input: 51 65 85;
-    --ring: 245 101 101;
+    --ring: 59 130 246;
   }
 }
 
@@ -86,41 +86,25 @@
 
   body {
     @apply bg-background text-foreground font-sans;
-    background: linear-gradient(135deg, hsl(var(--background)) 0%, hsl(220 27% 98%) 100%);
     min-height: 100vh;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-bold tracking-tight;
+    @apply font-bold tracking-tight text-foreground;
   }
 }
 
 @layer components {
   .btn-primary {
     @apply bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200;
-    box-shadow: var(--shadow-primary);
-  }
-
-  .btn-gradient {
-    background: var(--gradient-primary);
-    @apply text-white hover:scale-105 transition-all duration-200;
-    box-shadow: var(--shadow-primary);
   }
 
   .card-hover {
-    @apply transition-all duration-300 hover:scale-[1.02];
-    box-shadow: var(--shadow-card);
-  }
-
-  .card-hover:hover {
-    box-shadow: var(--shadow-hover);
+    @apply transition-all duration-300 hover:scale-[1.02] hover:shadow-lg;
   }
 
   .gradient-text {
-    background: var(--gradient-primary);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    @apply bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent;
   }
 
   .animate-float {
