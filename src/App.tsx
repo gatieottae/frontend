@@ -1,48 +1,52 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/hooks/useAuth";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import GroupDetail from "./pages/GroupDetail";
-import Profile from "./pages/Profile";
-import TravelGuide from "./pages/TravelGuide";
-import GuideDetail from "./pages/GuideDetail";
-import GuideContact from "./pages/GuideContact";
-import AuthorGuides from "./pages/AuthorGuides";
-import Invitations from "./pages/Invitations";
-import InviteLanding from "./pages/InviteLanding";
-import NotFound from "./pages/NotFound";
+import Header from "@/components/Header";
+import Index from "@/pages/Index";
+import TravelGuide from "@/pages/TravelGuide";
+import GuideDetail from "@/pages/GuideDetail";
+import GuideContact from "@/pages/GuideContact";
+import AuthorGuides from "@/pages/AuthorGuides";
+import GroupDetail from "@/pages/GroupDetail";
+import Profile from "@/pages/Profile";
+import Auth from "@/pages/Auth";
+import Notifications from "@/pages/Notifications";
+import InviteLanding from "@/pages/InviteLanding";
+import Invitations from "@/pages/Invitations";
+import NotFound from "@/pages/NotFound";
+import "./App.css";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/group/:id" element={<GroupDetail />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/travel-guide" element={<TravelGuide />} />
-            <Route path="/guide/:id" element={<GuideDetail />} />
-            <Route path="/guide-contact" element={<GuideContact />} />
-            <Route path="/author/:id/guides" element={<AuthorGuides />} />
-            <Route path="/invitations" element={<Invitations />} />
-            <Route path="/invite/:code" element={<InviteLanding />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <Router>
+          <div className="min-h-screen bg-background">
+            <Header />
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/travel-guide" element={<TravelGuide />} />
+              <Route path="/guide/:guideId" element={<GuideDetail />} />
+              <Route path="/guide/:guideId/contact" element={<GuideContact />} />
+              <Route path="/author/:authorId/guides" element={<AuthorGuides />} />
+              <Route path="/group/:groupId" element={<GroupDetail />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/invite/:inviteCode" element={<InviteLanding />} />
+              <Route path="/invitations" element={<Invitations />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            <Toaster />
+          </div>
+        </Router>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+}
 
 export default App;

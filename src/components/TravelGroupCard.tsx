@@ -17,41 +17,11 @@ interface TravelGroupCardProps {
   members: Array<{ name: string; avatar?: string }>;
 }
 
-// D-day 계산 함수
-const calculateDDay = (dateRange: string) => {
-  // "3월 15일 - 18일" 형식에서 시작일과 종료일 추출
-  const startDateMatch = dateRange.match(/(\d+)월\s*(\d+)일/);
-  const endDateMatch = dateRange.match(/(\d+)일$/);
-  
-  if (!startDateMatch) return null;
-  
-  const month = parseInt(startDateMatch[1]);
-  const startDay = parseInt(startDateMatch[2]);
-  const endDay = endDateMatch ? parseInt(endDateMatch[1]) : startDay;
-  const currentYear = new Date().getFullYear();
-  
-  const travelStartDate = new Date(currentYear, month - 1, startDay);
-  const travelEndDate = new Date(currentYear, month - 1, endDay);
-  
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  travelStartDate.setHours(0, 0, 0, 0);
-  travelEndDate.setHours(0, 0, 0, 0);
-  
-  // 여행 후
-  if (today > travelEndDate) {
-    return "완료";
-  }
-  
-  // 여행 중
-  if (today >= travelStartDate && today <= travelEndDate) {
-    return "여행 중";
-  }
-  
-  // 여행 전
-  const diffTime = travelStartDate.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return `D-${diffDays}`;
+const statusConfig = {
+  planning: { label: "계획 중", color: "bg-blue-500" },
+  voting: { label: "투표 중", color: "bg-orange-500" },
+  confirmed: { label: "확정됨", color: "bg-green-500" },
+  completed: { label: "완료", color: "bg-gray-500" }
 };
 
 const TravelGroupCard = ({
@@ -65,7 +35,7 @@ const TravelGroupCard = ({
   unreadCount,
   members
 }: TravelGroupCardProps) => {
-  const dDay = calculateDDay(dateRange);
+  const statusInfo = statusConfig[status];
 
   return (
     <Link to={`/group/${id}`}>
@@ -79,13 +49,9 @@ const TravelGroupCard = ({
                 {destination}
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              {dDay && (
-                <Badge variant="outline" className="border-primary text-primary">
-                  {dDay}
-                </Badge>
-              )}
-            </div>
+            <Badge className={`${statusInfo.color} text-white`}>
+              {statusInfo.label}
+            </Badge>
           </div>
         </CardHeader>
         
