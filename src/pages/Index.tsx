@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Plane, Heart, Star, Lock } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
 // 임시 데이터
@@ -62,11 +62,13 @@ const mockGroups = [
 
 const Index = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isGuest = !user;
   const [heroMinH, setHeroMinH] = useState<string | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [currentText, setCurrentText] = useState(0);
+  const [inviteCode, setInviteCode] = useState("");
 
   const textOptions = ["친구와", "연인과", "가족과", "동료와"];
 
@@ -112,6 +114,17 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <style>{`
+@keyframes floatBtn {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.btn-float { animation: floatBtn 3s ease-in-out infinite; will-change: transform; }
+.btn-float-delay { animation-delay: .6s; }
+@media (prefers-reduced-motion: reduce) {
+  .btn-float, .btn-float-delay { animation: none !important; }
+}
+`}</style>
 
       {/* Hero Section */}
       <section
@@ -121,7 +134,7 @@ const Index = () => {
         <div className="container mx-auto text-center space-y-6">
           <div className="space-y-4 animate-slide-up">
             <h1 className="text-4xl md:text-6xl font-bold leading-tight text-foreground">
-              <span 
+              <span
                 key={currentText}
                 className="inline-block animate-fade-in text-primary"
               >
@@ -134,13 +147,13 @@ const Index = () => {
               일정 조율부터 투표, 채팅까지 모든 여행 준비를 한 곳에서
             </p>
           </div>
-          
+
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-in">
             {user ? (
               <CreateGroupDialog />
             ) : (
               <Link to="/auth">
-                <Button size="lg">
+                <Button size="lg" className="btn-float">
                   <Plane className="h-4 w-4 mr-2" />
                   시작하기
                 </Button>
@@ -153,6 +166,33 @@ const Index = () => {
               </Button>
             </Link>
           </div>
+
+          {/* 초대코드 입력 */}
+          <form
+            className="mt-6 flex gap-2 justify-center"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const code = inviteCode.trim();
+              if (!code) return;
+              const target = `/invite/${encodeURIComponent(code)}`;
+              if (isGuest) {
+                navigate(`/auth?next=${encodeURIComponent(target)}`);
+              } else {
+                navigate(target);
+              }
+            }}
+          >
+            <Input
+              className="w-64"
+              placeholder="초대코드 입력"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              autoComplete="off"
+              inputMode="text"
+              maxLength={24}
+            />
+            <Button type="submit" variant="outline">참여</Button>
+          </form>
         </div>
       </section>
 
