@@ -9,8 +9,6 @@ import {
   MapPin, 
   Calendar, 
   Users, 
-  Star, 
-  Heart,
   Clock,
   DollarSign,
   Phone,
@@ -18,6 +16,11 @@ import {
   Share2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 // 임시 상세 가이드 데이터
 const guideDetails = {
@@ -89,10 +92,31 @@ const GuideDetail = () => {
   const { guideId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [isFavorite, setIsFavorite] = useState(false);
-  
+  // 일정 가져오기 다이얼로그 상태
+  const [importOpen, setImportOpen] = useState(false);
+  const myGroups = [
+    { id: "g1", name: "제주도 힐링 여행" },
+    { id: "g2", name: "부산 미식 여행" }
+  ];
+  const [targetGroupId, setTargetGroupId] = useState(myGroups[0]?.id || "");
+  type RangeMode = "all" | "days"; // 전체 or 여러 Day 개별 지정
+  const [rangeMode, setRangeMode] = useState<RangeMode>("all");
+  const [startDate, setStartDate] = useState<string>(""); // 전체 가져오기일 때 Day1 시작일
+  const [selectedDays, setSelectedDays] = useState<number[]>([]); // 선택된 Day 목록
+  const [dayDates, setDayDates] = useState<Record<number, string>>({}); // Day별 개별 날짜
+
+  const toggleDay = (day: number) => {
+    setSelectedDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
+  };
+
+  const setDayDate = (day: number, date: string) => {
+    setDayDates((prev) => ({ ...prev, [day]: date }));
+  };
+
   const guide = guideDetails[guideId as keyof typeof guideDetails];
-  
+
   if (!guide) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -107,11 +131,7 @@ const GuideDetail = () => {
   }
 
   const handleAddToSchedule = () => {
-    toast({
-      title: "일정에 추가되었습니다!",
-      description: "그룹 캘린더에서 확인할 수 있습니다.",
-    });
-    // 실제로는 그룹 일정에 추가하는 로직이 들어갑니다
+    setImportOpen(true);
   };
 
   const handleShare = () => {
@@ -126,8 +146,8 @@ const GuideDetail = () => {
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <div className="relative h-64 md:h-80">
-        <img 
-          src={guide.image} 
+        <img
+          src={guide.image}
           alt={guide.title}
           className="w-full h-full object-cover"
         />
@@ -140,14 +160,6 @@ const GuideDetail = () => {
           </Link>
         </div>
         <div className="absolute top-4 right-4 flex space-x-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="bg-white/20 hover:bg-white/30 text-white"
-            onClick={() => setIsFavorite(!isFavorite)}
-          >
-            <Heart className={`h-5 w-5 ${isFavorite ? 'fill-red-500 text-red-500' : ''}`} />
-          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -165,24 +177,19 @@ const GuideDetail = () => {
               <MapPin className="h-4 w-4" />
               <span>{guide.location}</span>
             </div>
-            <div className="flex items-center space-x-1">
-              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-              <span>{guide.rating}</span>
-              <span>({guide.reviewCount})</span>
-            </div>
           </div>
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-6">
         {/* Guide Info */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 items-stretch">
           <div className="lg:col-span-2">
-            <Card>
+            <Card className="h-full flex flex-col">
               <CardHeader>
                 <CardTitle className="text-foreground">가이드 소개</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-1">
                 <p className="text-foreground mb-4">{guide.overview}</p>
                 <div className="flex flex-wrap gap-2 mb-4">
                   {guide.tags.map((tag) => (
@@ -214,14 +221,14 @@ const GuideDetail = () => {
           </div>
 
           <div>
-            <Card>
+            <Card className="h-full flex flex-col">
               <CardHeader>
                 <CardTitle className="text-foreground">가이드 작성자</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex-1">
                 <div className="flex items-center space-x-3 mb-4">
-                  <img 
-                    src={guide.author.avatar} 
+                  <img
+                    src={guide.author.avatar}
                     alt={guide.author.name}
                     className="w-12 h-12 rounded-full"
                   />
@@ -290,10 +297,6 @@ const GuideDetail = () => {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-semibold text-foreground">{restaurant.name}</h4>
-                      <div className="flex items-center space-x-1">
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <span className="text-sm text-foreground">{restaurant.rating}</span>
-                      </div>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <Badge variant="secondary">{restaurant.type}</Badge>
@@ -312,10 +315,6 @@ const GuideDetail = () => {
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="font-semibold text-foreground">{hotel.name}</h4>
-                      <div className="flex items-center space-x-1">
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <span className="text-sm text-foreground">{hotel.rating}</span>
-                      </div>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <Badge variant="secondary">{hotel.type}</Badge>
@@ -339,6 +338,142 @@ const GuideDetail = () => {
             공유하기
           </Button>
         </div>
+
+      {/* 일정으로 가져오기 다이얼로그 */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>일정으로 가져오기</DialogTitle>
+            <DialogDescription>
+              가이드를 내 그룹 일정으로 가져오는 방식을 선택하세요.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* 그룹 선택 */}
+          <div className="space-y-2">
+            <Label>그룹 선택</Label>
+            <Select value={targetGroupId} onValueChange={setTargetGroupId}>
+              <SelectTrigger>
+                <SelectValue placeholder="그룹을 선택하세요" />
+              </SelectTrigger>
+              <SelectContent>
+                {myGroups.map((g) => (
+                  <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 가져올 범위 */}
+          <div className="mt-4 space-y-2">
+            <Label>가져올 범위</Label>
+            <RadioGroup
+              value={rangeMode}
+              onValueChange={(v) => setRangeMode(v as RangeMode)}
+              className="grid grid-cols-2 gap-3"
+            >
+              <div className="flex items-center space-x-2 p-3 border rounded-md">
+                <RadioGroupItem id="range-all" value="all" />
+                <Label htmlFor="range-all" className="cursor-pointer">전체</Label>
+              </div>
+              <div className="flex items-center space-x-2 p-3 border rounded-md">
+                <RadioGroupItem id="range-days" value="days" />
+                <Label htmlFor="range-days" className="cursor-pointer">특정 일자</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {/* 모드별 입력 */}
+          {rangeMode === "all" && (
+            <div className="mt-2 space-y-2">
+              <Label>Day 1 시작 날짜</Label>
+              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              <p className="text-xs text-muted-foreground">선택한 날짜를 Day 1로 삼아 순서대로 일정이 배치됩니다.</p>
+            </div>
+          )}
+
+          {rangeMode === "days" && (
+            <div className="mt-2 space-y-4">
+              <div className="space-y-2">
+                <Label>가져올 Day 선택</Label>
+                <div className="flex flex-wrap gap-2">
+                  {guide.itinerary.map((d) => (
+                    <button
+                      key={d.day}
+                      type="button"
+                      onClick={() => toggleDay(d.day)}
+                      className={`px-3 py-1 rounded-full border text-sm ${selectedDays.includes(d.day) ? 'bg-primary text-primary-foreground' : 'bg-background'}`}
+                    >
+                      Day {d.day}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">여러 Day를 자유롭게 선택하세요. 각 Day별로 날짜를 지정할 수 있습니다.</p>
+              </div>
+
+              {selectedDays.length > 0 && (
+                <div className="space-y-3">
+                  <Label>선택한 Day의 날짜 지정</Label>
+                  <div className="space-y-2">
+                    {selectedDays.sort((a,b)=>a-b).map((day) => (
+                      <div key={day} className="grid grid-cols-2 gap-3 items-center">
+                        <div className="text-sm font-medium">Day {day}</div>
+                        <Input
+                          type="date"
+                          value={dayDates[day] || ''}
+                          onChange={(e) => setDayDate(day, e.target.value)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 확인 버튼 */}
+          <div className="mt-6 flex gap-2">
+            <Button
+              className="flex-1"
+              onClick={() => {
+                // 간단한 유효성 검사
+                if (rangeMode === "all") {
+                  if (!startDate) {
+                    toast({ title: "시작 날짜를 선택하세요" });
+                    return;
+                  }
+                } else {
+                  if (selectedDays.length === 0) {
+                    toast({ title: "가져올 Day를 선택하세요" });
+                    return;
+                  }
+                  const missing = selectedDays.filter((d) => !dayDates[d]);
+                  if (missing.length > 0) {
+                    toast({ title: `날짜가 지정되지 않은 Day가 있어요: Day ${missing.sort((a,b)=>a-b).join(', ')}` });
+                    return;
+                  }
+                }
+
+                // 실제로는 API 호출 등을 통해 그룹 캘린더로 복사합니다.
+                setImportOpen(false);
+                toast({
+                  title: "일정에 추가되었습니다!",
+                  description:
+                    rangeMode === "all"
+                      ? `${guide.title}의 전체 일정이 ${startDate}부터 추가됩니다.`
+                      : selectedDays
+                          .sort((a,b)=>a-b)
+                          .map((d) => `Day ${d} → ${dayDates[d]}`)
+                          .join(" · "),
+                });
+              }}
+            >
+              가져오기
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => setImportOpen(false)}>취소</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       </div>
     </div>
   );

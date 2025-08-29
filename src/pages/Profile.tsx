@@ -1,16 +1,14 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, User, MapPin, Calendar, Edit, Star, Settings, LogOut } from "lucide-react";
+import { ArrowLeft, User, MapPin, Calendar, Edit, Star, LogOut } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import ProfileEditDialog from "@/components/ProfileEditDialog";
-import SettingsDialog from "@/components/SettingsDialog";
 import { useToast } from "@/hooks/use-toast";
 
 interface UserProfile {
@@ -18,6 +16,7 @@ interface UserProfile {
   email: string;
   bio: string;
   join_date: string;
+  avatar_url?: string;
 }
 
 const Profile = () => {
@@ -26,7 +25,6 @@ const Profile = () => {
   const { toast } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileEditOpen, setProfileEditOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [recentTrips] = useState([
@@ -38,7 +36,7 @@ const Profile = () => {
       dates: '2024.04.15-17'
     },
     {
-      id: '2', 
+      id: '2',
       name: '부산 여행',
       status: '완료',
       participants: 3,
@@ -47,7 +45,7 @@ const Profile = () => {
     {
       id: '3',
       name: '강릉 여행',
-      status: '완료', 
+      status: '완료',
       participants: 5,
       dates: '2024.02.20-22'
     }
@@ -78,7 +76,8 @@ const Profile = () => {
         name: data.name || '사용자',
         email: data.email || user.email || '',
         bio: data.bio || '여행을 사랑하는 사용자입니다.',
-        join_date: data.join_date ? new Date(data.join_date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' }) : '2024년 1월'
+        join_date: data.join_date ? new Date(data.join_date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' }) : '2024년 1월',
+        avatar_url: data.avatar_url || user.user_metadata?.avatar_url || ''
       });
     }
     setLoading(false);
@@ -128,11 +127,6 @@ const Profile = () => {
               <h1 className="text-xl font-bold text-foreground">마이페이지</h1>
             </div>
           </div>
-          
-          <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)}>
-            <Settings className="h-4 w-4 mr-2" />
-            설정
-          </Button>
         </div>
       </div>
 
@@ -145,7 +139,15 @@ const Profile = () => {
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-4">
                   <Avatar className="h-20 w-20">
-                    <AvatarImage src="" alt={profile.name} />
+                    <AvatarImage
+                      key={profile.avatar_url || 'no-avatar'}
+                      src={profile.avatar_url ? `${profile.avatar_url}` : undefined}
+                      alt={profile.name}
+                      onError={(e) => {
+                        // if the image fails, clear src so AvatarFallback shows
+                        (e.currentTarget as HTMLImageElement).src = '';
+                      }}
+                    />
                     <AvatarFallback className="text-lg bg-primary/10 text-primary">
                       {profile.name.substring(0, 1)}
                     </AvatarFallback>
@@ -159,74 +161,24 @@ const Profile = () => {
                     </div>
                   </div>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setProfileEditOpen(true)}>
-                  <Edit className="h-4 w-4 mr-2" />
-                  프로필 수정
-                </Button>
+                <div className="flex items-center">
+                  <Button variant="secondary" size="sm" onClick={() => setProfileEditOpen(true)}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    프로필 수정
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground mb-4">{profile.bio}</p>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">12</div>
-                  <div className="text-sm text-muted-foreground">총 여행</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">8</div>
-                  <div className="text-sm text-muted-foreground">완료 여행</div>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-1">
-                    <Star className="h-5 w-5 text-yellow-500 fill-current" />
-                    <span className="text-2xl font-bold text-primary">4.8</span>
-                  </div>
-                  <div className="text-sm text-muted-foreground">평점</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">4</div>
-                  <div className="text-sm text-muted-foreground">진행 중</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Recent Trips */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-foreground">최근 여행</CardTitle>
-              <CardDescription>참여한 최근 여행 목록입니다.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {recentTrips.map((trip, index) => (
-                <div key={trip.id}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <MapPin className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-foreground">{trip.name}</h4>
-                        <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                          <span>{trip.dates}</span>
-                          <span>참가자 {trip.participants}명</span>
-                        </div>
-                      </div>
-                    </div>
-                    {getStatusBadge(trip.status)}
-                  </div>
-                  {index < recentTrips.length - 1 && <Separator className="mt-4" />}
-                </div>
-              ))}
             </CardContent>
           </Card>
 
           {/* Logout Button */}
           <Card>
             <CardContent className="pt-6">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full justify-center h-12 text-destructive hover:text-destructive"
                 onClick={handleLogout}
               >
@@ -238,16 +190,12 @@ const Profile = () => {
         </div>
       </div>
 
-      <ProfileEditDialog 
-        open={profileEditOpen} 
+      <ProfileEditDialog
+        open={profileEditOpen}
         onOpenChange={setProfileEditOpen}
         onProfileUpdate={fetchProfile}
       />
-      
-      <SettingsDialog 
-        open={settingsOpen} 
-        onOpenChange={setSettingsOpen}
-      />
+
     </div>
   );
 };

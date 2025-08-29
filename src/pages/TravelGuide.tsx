@@ -10,8 +10,6 @@ import {
   MapPin, 
   Calendar, 
   Users, 
-  Star, 
-  Heart,
   Search,
   Camera,
   Utensils,
@@ -73,7 +71,6 @@ const categories = [
 const TravelGuide = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [favorites, setFavorites] = useState<string[]>([]);
 
   const filteredGuides = travelGuides.filter(guide => {
     const matchesSearch = guide.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -81,14 +78,6 @@ const TravelGuide = () => {
     const matchesCategory = selectedCategory === "all" || guide.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
-
-  const toggleFavorite = (guideId: string) => {
-    setFavorites(prev => 
-      prev.includes(guideId) 
-        ? prev.filter(id => id !== guideId)
-        : [...prev, guideId]
-    );
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -148,30 +137,16 @@ const TravelGuide = () => {
                   {filteredGuides.map((guide, index) => (
                     <Card key={guide.id} className="card-hover overflow-hidden" style={{animationDelay: `${index * 0.1}s`}}>
                       <div className="relative">
-                        <img 
-                          src={guide.image} 
+                        <img
+                          src={guide.image}
                           alt={guide.title}
                           className="w-full h-48 object-cover"
                         />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute top-2 right-2 bg-white/80 hover:bg-white"
-                          onClick={() => toggleFavorite(guide.id)}
-                        >
-                          <Heart 
-                            className={`h-4 w-4 ${
-                              favorites.includes(guide.id) 
-                                ? 'fill-red-500 text-red-500' 
-                                : 'text-gray-600'
-                            }`} 
-                          />
-                        </Button>
                         <Badge className="absolute bottom-2 left-2 bg-primary text-white">
                           {guide.category}
                         </Badge>
                       </div>
-                      
+
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between">
                           <CardTitle className="text-lg">{guide.title}</CardTitle>
@@ -180,11 +155,6 @@ const TravelGuide = () => {
                           <div className="flex items-center space-x-1">
                             <MapPin className="h-4 w-4" />
                             <span>{guide.location}</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                            <span>{guide.rating}</span>
-                            <span>({guide.reviewCount})</span>
                           </div>
                         </div>
                       </CardHeader>

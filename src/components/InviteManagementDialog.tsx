@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Copy, RefreshCw, Send, Clock, Users, Mail } from "lucide-react";
+import { Copy, RefreshCw, Clock, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -36,7 +35,6 @@ const InviteManagementDialog = ({ open, onOpenChange, groupId, groupName }: Invi
   const [inviteCode, setInviteCode] = useState("");
   const [expiryTime, setExpiryTime] = useState("1hour");
   const [permission, setPermission] = useState("anyone");
-  const [emailToInvite, setEmailToInvite] = useState("");
   const [invitations, setInvitations] = useState<Invitation[]>([]);
 
   useEffect(() => {
@@ -100,8 +98,8 @@ const InviteManagementDialog = ({ open, onOpenChange, groupId, groupName }: Invi
     const inviteLink = `${window.location.origin}/invite/${inviteCode}`;
     navigator.clipboard.writeText(inviteLink);
     toast({
-      title: "링크가 복사되었습니다",
-      description: "초대 링크를 공유해보세요!",
+      title: "초대 코드가 복사되었습니다",
+      description: "초대 코드를 공유해보세요!",
     });
   };
 
@@ -116,53 +114,18 @@ const InviteManagementDialog = ({ open, onOpenChange, groupId, groupName }: Invi
     });
   };
 
-  const sendEmailInvite = async () => {
-    if (!emailToInvite) return;
-
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from('invitations')
-        .insert({
-          group_id: groupId,
-          invited_by: user?.id,
-          invited_email: emailToInvite,
-          expires_at: getExpiryDate(expiryTime)
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: "초대를 보냈습니다",
-        description: `${emailToInvite}로 초대를 전송했습니다.`,
-      });
-
-      setEmailToInvite("");
-      await fetchInvitations();
-    } catch (error) {
-      toast({
-        title: "초대 전송 실패",
-        description: "다시 시도해주세요.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+  const getStatusBadge = (expires_at?: string | null) => {
+    const now = new Date();
+    if (!expires_at) {
+      // no expiry -> always active
+      return <Badge variant="default">활성</Badge>;
     }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Badge variant="outline">대기 중</Badge>;
-      case 'accepted':
-        return <Badge variant="default">수락됨</Badge>;
-      case 'rejected':
-        return <Badge variant="destructive">거절됨</Badge>;
-      case 'expired':
-        return <Badge variant="secondary">만료됨</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
+    const exp = new Date(expires_at);
+    return exp > now ? (
+      <Badge variant="default">활성</Badge>
+    ) : (
+      <Badge variant="secondary">만료</Badge>
+    );
   };
 
   return (
@@ -176,10 +139,9 @@ const InviteManagementDialog = ({ open, onOpenChange, groupId, groupName }: Invi
         </DialogHeader>
 
         <Tabs defaultValue="link" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="link">초대 링크</TabsTrigger>
-            <TabsTrigger value="email">이메일 초대</TabsTrigger>
-            <TabsTrigger value="history">초대 내역</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="link">초대 코드</TabsTrigger>
+            <TabsTrigger value="history">초대 코드 상태</TabsTrigger>
           </TabsList>
 
           <TabsContent value="link" className="space-y-4">
@@ -187,10 +149,10 @@ const InviteManagementDialog = ({ open, onOpenChange, groupId, groupName }: Invi
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Copy className="h-4 w-4" />
-                  <span>초대 링크</span>
+                  <span>초대 코드</span>
                 </CardTitle>
                 <CardDescription>
-                  링크를 복사해서 친구들에게 공유하세요
+                  코드를 복사해서 친구들에게 공유하세요
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -204,7 +166,7 @@ const InviteManagementDialog = ({ open, onOpenChange, groupId, groupName }: Invi
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid">
                   <div className="space-y-2">
                     <Label>만료 시간</Label>
                     <Select value={expiryTime} onValueChange={setExpiryTime}>
@@ -220,18 +182,6 @@ const InviteManagementDialog = ({ open, onOpenChange, groupId, groupName }: Invi
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>권한</Label>
-                    <Select value={permission} onValueChange={setPermission}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="anyone">누구나</SelectItem>
-                        <SelectItem value="members">멤버만</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
 
                 <Button onClick={regenerateCode} disabled={loading} className="w-full">
@@ -242,54 +192,37 @@ const InviteManagementDialog = ({ open, onOpenChange, groupId, groupName }: Invi
             </Card>
           </TabsContent>
 
-          <TabsContent value="email" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Mail className="h-4 w-4" />
-                  <span>이메일로 초대</span>
-                </CardTitle>
-                <CardDescription>
-                  이메일 주소를 입력해서 직접 초대를 보내세요
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">이메일 주소</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="friend@example.com"
-                    value={emailToInvite}
-                    onChange={(e) => setEmailToInvite(e.target.value)}
-                  />
-                </div>
-
-                <Button onClick={sendEmailInvite} disabled={loading || !emailToInvite} className="w-full">
-                  <Send className="h-4 w-4 mr-2" />
-                  초대 보내기
-                </Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
           <TabsContent value="history" className="space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Clock className="h-4 w-4" />
-                  <span>초대 내역</span>
+                  <span>초대 코드 상태</span>
                 </CardTitle>
                 <CardDescription>
-                  보낸 초대들의 상태를 확인하세요
+                  보낸 초대 코드들의 상태를 확인하세요
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                <div className="flex items-center justify-between p-3 border rounded-lg opacity-50 mb-4">
+                  <div>
+                    <p className="font-medium">
+                      코드: SAMPLECODE123
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      만료: 2024-12-31 23:59
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      생성일: 2024-01-01
+                    </p>
+                  </div>
+                  <Badge variant="secondary">만료</Badge>
+                </div>
                 {invitations.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>보낸 초대가 없습니다</p>
-                    <p className="text-sm">링크나 이메일로 친구를 초대해보세요!</p>
+                    <p className="text-sm">코드로 친구를 초대해보세요!</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -297,13 +230,16 @@ const InviteManagementDialog = ({ open, onOpenChange, groupId, groupName }: Invi
                       <div key={invitation.id} className="flex items-center justify-between p-3 border rounded-lg">
                         <div>
                           <p className="font-medium">
-                            {invitation.invited_email || `코드: ${invitation.invite_code}`}
+                            {`코드: ${invitation.invite_code}`}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {new Date(invitation.created_at).toLocaleDateString('ko-KR')}
+                            만료: {invitation.expires_at ? new Date(invitation.expires_at).toLocaleString('ko-KR') : "무제한"}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            생성일: {new Date(invitation.created_at).toLocaleDateString('ko-KR')}
                           </p>
                         </div>
-                        {getStatusBadge(invitation.status)}
+                        {getStatusBadge(invitation.expires_at)}
                       </div>
                     ))}
                   </div>

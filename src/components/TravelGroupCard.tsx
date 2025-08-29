@@ -9,7 +9,6 @@ interface TravelGroupCardProps {
   id: string;
   title: string;
   destination: string;
-  status: "planning" | "voting" | "confirmed" | "completed";
   memberCount: number;
   dateRange: string;
   lastMessage?: string;
@@ -17,25 +16,43 @@ interface TravelGroupCardProps {
   members: Array<{ name: string; avatar?: string }>;
 }
 
-const statusConfig = {
-  planning: { label: "계획 중", color: "bg-blue-500" },
-  voting: { label: "투표 중", color: "bg-orange-500" },
-  confirmed: { label: "확정됨", color: "bg-green-500" },
-  completed: { label: "완료", color: "bg-gray-500" }
+const getDdayInfo = (dateRange: string) => {
+  if (!dateRange) return { label: "미정", color: "bg-gray-500" };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [startDateStr, endDateStr] = dateRange.split(' ~ ');
+  const startDate = new Date(startDateStr);
+  startDate.setHours(0, 0, 0, 0);
+  
+  const endDate = endDateStr ? new Date(endDateStr) : startDate;
+  endDate.setHours(23, 59, 59, 999);
+
+  const diffTime = startDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (today >= startDate && today <= endDate) {
+    return { label: "여행 중", color: "bg-green-500" };
+  } else if (today > endDate) {
+    return { label: "여행 종료", color: "bg-gray-500" };
+  } else {
+    return { label: `D-${diffDays}`, color: "bg-blue-500" };
+  }
 };
+
 
 const TravelGroupCard = ({
   id,
   title,
   destination,
-  status,
   memberCount,
   dateRange,
   lastMessage,
   unreadCount,
   members
 }: TravelGroupCardProps) => {
-  const statusInfo = statusConfig[status];
+  const ddayInfo = getDdayInfo(dateRange);
 
   return (
     <Link to={`/group/${id}`}>
@@ -49,8 +66,8 @@ const TravelGroupCard = ({
                 {destination}
               </div>
             </div>
-            <Badge className={`${statusInfo.color} text-white`}>
-              {statusInfo.label}
+            <Badge className={`${ddayInfo.color} text-white`}>
+              {ddayInfo.label}
             </Badge>
           </div>
         </CardHeader>
