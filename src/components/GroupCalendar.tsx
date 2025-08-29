@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,7 +37,7 @@ const mockSchedules: Schedule[] = [
     allMembers: ["김민수", "이지은", "박정우", "최유리"]
   },
   {
-    id: "2", 
+    id: "2",
     title: "성산일출봉 관광",
     date: new Date(2025, 2, 16), // 3월 16일
     startTime: "06:00",
@@ -86,7 +85,7 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
         const isParticipating = schedule.availableMembers.includes("김민수");
         return {
           ...schedule,
-          availableMembers: isParticipating 
+          availableMembers: isParticipating
             ? schedule.availableMembers.filter(member => member !== "김민수")
             : [...schedule.availableMembers, "김민수"]
         };
@@ -96,7 +95,7 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
   };
 
   const selectedDateSchedules = schedules.filter(
-    schedule => selectedDate && 
+    schedule => selectedDate &&
     schedule.date.toDateString() === selectedDate.toDateString()
   );
 
@@ -112,7 +111,8 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* 캘린더 */}
-      <Card>
+      <div>
+        <Card className="w-full">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span className="flex items-center space-x-2">
@@ -136,7 +136,7 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
                     <Input
                       id="title"
                       value={newSchedule.title}
-                      onChange={(e) => setNewSchedule({...newSchedule, title: e.target.value})}
+                      onChange={(e) => setNewSchedule({ ...newSchedule, title: e.target.value })}
                       placeholder="일정 제목을 입력하세요"
                     />
                   </div>
@@ -147,7 +147,7 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
                         id="startTime"
                         type="time"
                         value={newSchedule.startTime}
-                        onChange={(e) => setNewSchedule({...newSchedule, startTime: e.target.value})}
+                        onChange={(e) => setNewSchedule({ ...newSchedule, startTime: e.target.value })}
                       />
                     </div>
                     <div>
@@ -156,17 +156,13 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
                         id="endTime"
                         type="time"
                         value={newSchedule.endTime}
-                        onChange={(e) => setNewSchedule({...newSchedule, endTime: e.target.value})}
+                        onChange={(e) => setNewSchedule({ ...newSchedule, endTime: e.target.value })}
                       />
                     </div>
                   </div>
                   <div className="flex space-x-2">
-                    <Button onClick={handleAddSchedule} className="flex-1">
-                      추가
-                    </Button>
-                    <Button variant="outline" onClick={() => setIsAddingSchedule(false)} className="flex-1">
-                      취소
-                    </Button>
+                    <Button onClick={handleAddSchedule} className="flex-1">추가</Button>
+                    <Button variant="outline" onClick={() => setIsAddingSchedule(false)} className="flex-1">취소</Button>
                   </div>
                 </div>
               </DialogContent>
@@ -179,17 +175,24 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
             selected={selectedDate}
             onSelect={setSelectedDate}
             className="w-full"
+            classNames={{
+              cell: "h-12 w-12 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+              day: "h-12 w-12 p-0 font-normal aria-selected:opacity-100",
+              head_cell: "text-muted-foreground rounded-md w-12 font-normal text-[0.8rem]",
+            }}
           />
         </CardContent>
-      </Card>
+        </Card>
+      </div>
 
       {/* 선택된 날짜의 일정 */}
-      <Card>
+      <div>
+        <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <Clock className="h-5 w-5" />
             <span>
-              {selectedDate 
+              {selectedDate
                 ? `${selectedDate.getMonth() + 1}월 ${selectedDate.getDate()}일 일정`
                 : "날짜를 선택하세요"
               }
@@ -207,7 +210,7 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
                 const isParticipating = schedule.availableMembers.includes("김민수");
                 const participantCount = schedule.availableMembers.length;
                 const totalCount = schedule.allMembers.length;
-                
+
                 return (
                   <div key={schedule.id} className="border rounded-lg p-4">
                     <div className="flex items-start justify-between mb-2">
@@ -216,20 +219,20 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
                         {schedule.startTime} - {schedule.endTime}
                       </Badge>
                     </div>
-                    
+
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                         <Users className="h-4 w-4" />
                         <span>{participantCount}/{totalCount} 참여</span>
                       </div>
-                      
+
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id={`participate-${schedule.id}`}
                           checked={isParticipating}
                           onCheckedChange={() => toggleParticipation(schedule.id)}
                         />
-                        <Label 
+                        <Label
                           htmlFor={`participate-${schedule.id}`}
                           className="text-sm cursor-pointer"
                         >
@@ -237,7 +240,7 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
                         </Label>
                       </div>
                     </div>
-                    
+
                     <div className="text-sm text-muted-foreground">
                       참여자: {schedule.availableMembers.join(", ") || "없음"}
                     </div>
@@ -247,7 +250,8 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
             </div>
           )}
         </CardContent>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };

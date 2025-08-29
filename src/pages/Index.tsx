@@ -4,7 +4,7 @@ import CreateGroupDialog from "@/components/CreateGroupDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Plane, Heart, Star, Lock } from "lucide-react";
+import { Search, Plane, Heart } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -14,9 +14,8 @@ const mockGroups = [
     id: "1",
     title: "제주도 힐링 여행 🌴",
     destination: "제주도",
-    status: "voting" as const,
     memberCount: 4,
-    dateRange: "3월 15일 - 18일",
+    dateRange: "2025-09-15 ~ 2025-09-18",
     lastMessage: "숙소 투표 시작했어요!",
     unreadCount: 3,
     members: [
@@ -30,9 +29,8 @@ const mockGroups = [
     id: "2",
     title: "부산 맛집 탐방 🦐",
     destination: "부산",
-    status: "planning" as const,
     memberCount: 3,
-    dateRange: "4월 1일 - 3일",
+    dateRange: "2025-08-20 ~ 2025-08-22",
     lastMessage: "언제가 좋을까요?",
     unreadCount: 1,
     members: [
@@ -45,9 +43,8 @@ const mockGroups = [
     id: "3",
     title: "강릉 바다 여행 🌊",
     destination: "강릉",
-    status: "confirmed" as const,
     memberCount: 5,
-    dateRange: "5월 10일 - 12일",
+    dateRange: "2025-08-29 ~ 2025-08-31",
     lastMessage: "숙소 예약 완료!",
     unreadCount: 0,
     members: [
@@ -59,6 +56,28 @@ const mockGroups = [
     ]
   }
 ];
+
+const getTripStatus = (dateRange: string): 'before' | 'during' | 'after' => {
+  if (!dateRange) return 'before';
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [startDateStr, endDateStr] = dateRange.split(' ~ ');
+  const startDate = new Date(startDateStr);
+  startDate.setHours(0, 0, 0, 0);
+  
+  const endDate = endDateStr ? new Date(endDateStr) : startDate;
+  endDate.setHours(23, 59, 59, 999);
+
+  if (today >= startDate && today <= endDate) {
+    return 'during';
+  } else if (today > endDate) {
+    return 'after';
+  } else {
+    return 'before';
+  }
+};
 
 const Index = () => {
   const { user } = useAuth();
@@ -109,7 +128,8 @@ const Index = () => {
                          group.destination.toLowerCase().includes(searchQuery.toLowerCase());
 
     if (activeTab === "all") return matchesSearch;
-    return matchesSearch && group.status === activeTab;
+    const status = getTripStatus(group.dateRange);
+    return matchesSearch && status === activeTab;
   });
 
   return (
@@ -141,7 +161,7 @@ const Index = () => {
                 {textOptions[currentText]}
               </span>
               {" "}함께하는<br />
-              <span className="gradient-text">완벽한 여행</span>
+              <span className="gradient-text">완벽한 여행.</span>
             </h1>
             <p className="text-xl text-foreground max-w-2xl mx-auto">
               일정 조율부터 투표, 채팅까지 모든 여행 준비를 한 곳에서
@@ -183,13 +203,13 @@ const Index = () => {
             }}
           >
             <Input
-              className="w-64"
-              placeholder="초대코드 입력"
-              value={inviteCode}
-              onChange={(e) => setInviteCode(e.target.value)}
-              autoComplete="off"
-              inputMode="text"
-              maxLength={24}
+                className="w-64 border-2 border-primary focus-visible:border-primary focus-visible:outline-none"
+                placeholder="초대코드 입력"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value)}
+                autoComplete="off"
+                inputMode="text"
+                maxLength={24}
             />
             <Button type="submit" variant="outline">참여</Button>
           </form>
@@ -215,9 +235,9 @@ const Index = () => {
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="all">전체</TabsTrigger>
-                <TabsTrigger value="planning">계획 중</TabsTrigger>
-                <TabsTrigger value="voting">투표 중</TabsTrigger>
-                <TabsTrigger value="confirmed">확정됨</TabsTrigger>
+                <TabsTrigger value="before">여행 전</TabsTrigger>
+                <TabsTrigger value="during">여행 중</TabsTrigger>
+                <TabsTrigger value="after">여행 종료</TabsTrigger>
               </TabsList>
               
               <TabsContent value={activeTab} className="mt-6">
