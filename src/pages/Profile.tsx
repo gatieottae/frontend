@@ -5,12 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, User, MapPin, Calendar, Edit, Star, Settings, LogOut } from "lucide-react";
+import { ArrowLeft, User, MapPin, Calendar, Edit, Star, LogOut } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import ProfileEditDialog from "@/components/ProfileEditDialog";
-import SettingsDialog from "@/components/SettingsDialog";
 import { useToast } from "@/hooks/use-toast";
 
 interface UserProfile {
@@ -26,7 +25,6 @@ const Profile = () => {
   const { toast } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileEditOpen, setProfileEditOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [recentTrips] = useState([
@@ -104,6 +102,10 @@ const Profile = () => {
     }
   };
 
+  const handleTripClick = (tripId: string) => {
+    navigate(`/group/${tripId}`);
+  };
+
   if (loading) {
     return <div className="min-h-screen bg-background flex items-center justify-center">로딩 중...</div>;
   }
@@ -128,11 +130,6 @@ const Profile = () => {
               <h1 className="text-xl font-bold text-foreground">마이페이지</h1>
             </div>
           </div>
-          
-          <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)}>
-            <Settings className="h-4 w-4 mr-2" />
-            설정
-          </Button>
         </div>
       </div>
 
@@ -201,7 +198,10 @@ const Profile = () => {
             <CardContent className="space-y-4">
               {recentTrips.map((trip, index) => (
                 <div key={trip.id}>
-                  <div className="flex items-center justify-between">
+                  <div 
+                    className="flex items-center justify-between cursor-pointer hover:bg-muted/50 p-2 rounded-md transition-colors"
+                    onClick={() => handleTripClick(trip.id)}
+                  >
                     <div className="flex items-center space-x-3">
                       <div className="p-2 bg-primary/10 rounded-lg">
                         <MapPin className="h-4 w-4 text-primary" />
@@ -242,11 +242,6 @@ const Profile = () => {
         open={profileEditOpen} 
         onOpenChange={setProfileEditOpen}
         onProfileUpdate={fetchProfile}
-      />
-      
-      <SettingsDialog 
-        open={settingsOpen} 
-        onOpenChange={setSettingsOpen}
       />
     </div>
   );
