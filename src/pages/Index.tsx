@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import TravelGroupCard from "@/components/TravelGroupCard";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
@@ -63,10 +62,12 @@ const mockGroups = [
 
 const Index = () => {
   const { user } = useAuth();
+  const isGuest = !user;
+  const [heroMinH, setHeroMinH] = useState<string | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [currentText, setCurrentText] = useState(0);
-  
+
   const textOptions = ["친구와", "연인과", "가족과", "동료와"];
 
   useEffect(() => {
@@ -77,19 +78,46 @@ const Index = () => {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (!isGuest) return;
+    const measure = () => {
+      const headerEl = document.querySelector('header') as HTMLElement | null;
+      const headerH = headerEl?.offsetHeight ?? 0;
+      setHeroMinH(`calc(100svh - ${headerH}px)`);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [isGuest]);
+
+  useEffect(() => {
+    if (!isGuest) return;
+    const prevHtml = document.documentElement.style.overflowY;
+    const prevBody = document.body.style.overflowY;
+    document.documentElement.style.overflowY = 'hidden';
+    document.body.style.overflowY = 'hidden';
+    return () => {
+      document.documentElement.style.overflowY = prevHtml;
+      document.body.style.overflowY = prevBody;
+    };
+  }, [isGuest]);
+
   const filteredGroups = mockGroups.filter(group => {
     const matchesSearch = group.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          group.destination.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     if (activeTab === "all") return matchesSearch;
     return matchesSearch && group.status === activeTab;
   });
 
   return (
     <div className="min-h-screen bg-background">
-      
+
       {/* Hero Section */}
-      <section className="py-12 px-4">
+      <section
+        className={`px-4 ${isGuest ? 'grid place-items-center' : 'py-12'}`}
+        style={isGuest ? { minHeight: heroMinH ?? 'calc(100svh - 80px)' } : undefined}
+      >
         <div className="container mx-auto text-center space-y-6">
           <div className="space-y-4 animate-slide-up">
             <h1 className="text-4xl md:text-6xl font-bold leading-tight text-foreground">
@@ -170,24 +198,7 @@ const Index = () => {
             </Tabs>
           </div>
         </section>
-      ) : (
-        <section className="py-12 px-4">
-          <div className="container mx-auto text-center">
-            <div className="max-w-md mx-auto bg-card rounded-lg p-8 border">
-              <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-xl font-semibold mb-2">로그인이 필요합니다</h3>
-              <p className="text-muted-foreground mb-6">
-                여행 그룹을 보려면 먼저 로그인해주세요
-              </p>
-              <Link to="/auth">
-                <Button className="w-full">
-                  로그인하기
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+      ) : null}
     </div>
   );
 };
