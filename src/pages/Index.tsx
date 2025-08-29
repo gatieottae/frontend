@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -238,10 +237,9 @@ const Index = () => {
       </main>
 
       {/* Create Group Dialog */}
-      <CreateGroupDialog 
-        open={isCreateDialogOpen} 
-        onOpenChange={setIsCreateDialogOpen}
-      />
+      {isCreateDialogOpen && (
+        <CreateGroupDialog onClose={() => setIsCreateDialogOpen(false)} />
+      )}
     </div>
   );
 };
