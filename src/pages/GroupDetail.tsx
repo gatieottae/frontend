@@ -13,16 +13,14 @@ import VotingSystem from "@/components/VotingSystem";
 import PaymentCalculator from "@/components/PaymentCalculator";
 import InviteManagementDialog from "@/components/InviteManagementDialog";
 
-// 임시 데이터 - D-day 계산을 위한 날짜 정보 추가
+// 임시 데이터
 const mockGroupData = {
   id: "1",
   title: "제주도 힐링 여행 🌴",
   destination: "제주도",
-  status: "upcoming" as const,
+  status: "voting" as const,
   memberCount: 4,
   dateRange: "3월 15일 - 18일",
-  startDate: "2024-03-15",
-  endDate: "2024-03-18",
   description: "친구들과 함께하는 힐링 여행입니다. 맛있는 음식도 먹고 예쁜 카페도 가요!",
   members: [
     { id: "1", name: "김민수", avatar: "", isAdmin: true },
@@ -32,40 +30,23 @@ const mockGroupData = {
   ]
 };
 
-const getDDayInfo = (startDate: string, endDate: string) => {
-  const now = new Date();
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  
-  if (now < start) {
-    const timeDiff = start.getTime() - now.getTime();
-    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-    return {
-      label: `D-${daysDiff}`,
-      color: "bg-blue-500"
-    };
-  } else if (now >= start && now <= end) {
-    return {
-      label: "여행 중",
-      color: "bg-green-500"
-    };
-  } else {
-    return {
-      label: "여행 종료",
-      color: "bg-gray-500"
-    };
-  }
-};
-
 const GroupDetail = () => {
   const { groupId } = useParams();
   const [activeTab, setActiveTab] = useState("calendar");
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   
+  // 실제로는 groupId를 사용해서 데이터를 가져올 것
   const group = mockGroupData;
-  const currentUser = "김민수";
+  const currentUser = "김민수"; // 임시 현재 사용자 설정
 
-  const ddayInfo = getDDayInfo(group.startDate, group.endDate);
+  const statusConfig = {
+    planning: { label: "계획 중", color: "bg-blue-500" },
+    voting: { label: "투표 중", color: "bg-orange-500" },
+    confirmed: { label: "확정됨", color: "bg-green-500" },
+    completed: { label: "완료", color: "bg-gray-500" }
+  };
+
+  const statusInfo = statusConfig[group.status];
   const isAdmin = group.members.find(m => m.name === currentUser)?.isAdmin || false;
 
   return (
@@ -92,8 +73,8 @@ const GroupDetail = () => {
                   친구 초대
                 </Button>
               )}
-              <Badge className={`${ddayInfo.color} text-white`}>
-                {ddayInfo.label}
+              <Badge className={`${statusInfo.color} text-white`}>
+                {statusInfo.label}
               </Badge>
             </div>
           </div>

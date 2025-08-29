@@ -9,42 +9,19 @@ interface TravelGroupCardProps {
   id: string;
   title: string;
   destination: string;
-  status: "upcoming" | "ongoing" | "completed";
+  status: "planning" | "voting" | "confirmed" | "completed";
   memberCount: number;
   dateRange: string;
   lastMessage?: string;
   unreadCount?: number;
   members: Array<{ name: string; avatar?: string }>;
-  startDate: string; // 여행 시작 날짜 추가
-  endDate: string; // 여행 종료 날짜 추가
 }
 
-const getDDayInfo = (startDate: string, endDate: string) => {
-  const now = new Date();
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  
-  if (now < start) {
-    // 여행 전
-    const timeDiff = start.getTime() - now.getTime();
-    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-    return {
-      label: `D-${daysDiff}`,
-      color: "bg-blue-500"
-    };
-  } else if (now >= start && now <= end) {
-    // 여행 중
-    return {
-      label: "여행 중",
-      color: "bg-green-500"
-    };
-  } else {
-    // 여행 종료
-    return {
-      label: "여행 종료",
-      color: "bg-gray-500"
-    };
-  }
+const statusConfig = {
+  planning: { label: "계획 중", color: "bg-blue-500" },
+  voting: { label: "투표 중", color: "bg-orange-500" },
+  confirmed: { label: "확정됨", color: "bg-green-500" },
+  completed: { label: "완료", color: "bg-gray-500" }
 };
 
 const TravelGroupCard = ({
@@ -56,11 +33,9 @@ const TravelGroupCard = ({
   dateRange,
   lastMessage,
   unreadCount,
-  members,
-  startDate,
-  endDate
+  members
 }: TravelGroupCardProps) => {
-  const ddayInfo = getDDayInfo(startDate, endDate);
+  const statusInfo = statusConfig[status];
 
   return (
     <Link to={`/group/${id}`}>
@@ -74,8 +49,8 @@ const TravelGroupCard = ({
                 {destination}
               </div>
             </div>
-            <Badge className={`${ddayInfo.color} text-white`}>
-              {ddayInfo.label}
+            <Badge className={`${statusInfo.color} text-white`}>
+              {statusInfo.label}
             </Badge>
           </div>
         </CardHeader>

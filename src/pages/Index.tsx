@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import TravelGroupCard from "@/components/TravelGroupCard";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
@@ -9,17 +8,15 @@ import { Search, Plane, Heart, Star, Lock } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 
-// 임시 데이터 - 상태와 날짜 정보 추가
+// 임시 데이터
 const mockGroups = [
   {
     id: "1",
     title: "제주도 힐링 여행 🌴",
     destination: "제주도",
-    status: "upcoming" as const,
+    status: "voting" as const,
     memberCount: 4,
     dateRange: "3월 15일 - 18일",
-    startDate: "2024-03-15",
-    endDate: "2024-03-18",
     lastMessage: "숙소 투표 시작했어요!",
     unreadCount: 3,
     members: [
@@ -33,11 +30,9 @@ const mockGroups = [
     id: "2",
     title: "부산 맛집 탐방 🦐",
     destination: "부산",
-    status: "ongoing" as const,
+    status: "planning" as const,
     memberCount: 3,
     dateRange: "4월 1일 - 3일",
-    startDate: "2024-04-01",
-    endDate: "2024-04-03",
     lastMessage: "언제가 좋을까요?",
     unreadCount: 1,
     members: [
@@ -50,11 +45,9 @@ const mockGroups = [
     id: "3",
     title: "강릉 바다 여행 🌊",
     destination: "강릉",
-    status: "completed" as const,
+    status: "confirmed" as const,
     memberCount: 5,
-    dateRange: "2월 10일 - 12일",
-    startDate: "2024-02-10",
-    endDate: "2024-02-12",
+    dateRange: "5월 10일 - 12일",
     lastMessage: "숙소 예약 완료!",
     unreadCount: 0,
     members: [
@@ -116,10 +109,7 @@ const Index = () => {
                          group.destination.toLowerCase().includes(searchQuery.toLowerCase());
 
     if (activeTab === "all") return matchesSearch;
-    if (activeTab === "upcoming") return matchesSearch && group.status === "upcoming";
-    if (activeTab === "ongoing") return matchesSearch && group.status === "ongoing";
-    if (activeTab === "completed") return matchesSearch && group.status === "completed";
-    return matchesSearch;
+    return matchesSearch && group.status === activeTab;
   });
 
   return (
@@ -225,9 +215,9 @@ const Index = () => {
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="all">전체</TabsTrigger>
-                <TabsTrigger value="upcoming">여행 전</TabsTrigger>
-                <TabsTrigger value="ongoing">여행 중</TabsTrigger>
-                <TabsTrigger value="completed">여행 종료</TabsTrigger>
+                <TabsTrigger value="planning">계획 중</TabsTrigger>
+                <TabsTrigger value="voting">투표 중</TabsTrigger>
+                <TabsTrigger value="confirmed">확정됨</TabsTrigger>
               </TabsList>
               
               <TabsContent value={activeTab} className="mt-6">
