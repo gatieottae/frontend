@@ -35,6 +35,7 @@ const GroupDetail = () => {
   
   // 실제로는 groupId를 사용해서 데이터를 가져올 것
   const group = mockGroupData;
+  const currentUser = "김민수"; // 임시 현재 사용자 설정
 
   const statusConfig = {
     planning: { label: "계획 중", color: "bg-blue-500" },
@@ -138,7 +139,7 @@ const GroupDetail = () => {
           </TabsContent>
 
           <TabsContent value="payment" className="mt-6">
-            <PaymentCalculator groupId={group.id} members={group.members} />
+            <PaymentCalculator groupId={group.id} members={group.members} currentUser={currentUser} />
           </TabsContent>
         </Tabs>
       </div>
