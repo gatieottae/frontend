@@ -159,12 +159,13 @@ const Auth = () => {
                 )}
                 
                 <div className="space-y-2">
-                  <Label htmlFor="email">이메일</Label>
+                  <Label htmlFor="email">아이디 (이메일)</Label>
                   <Input
                     id="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    placeholder="example@email.com"
                     required
                   />
                 </div>

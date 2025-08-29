@@ -18,7 +18,8 @@ interface Schedule {
   id: string;
   title: string;
   date: Date;
-  time: string;
+  startTime: string;
+  endTime: string;
   type: string;
   availableMembers: string[];
   allMembers: string[];
@@ -30,7 +31,8 @@ const mockSchedules: Schedule[] = [
     id: "1",
     title: "제주도 도착",
     date: new Date(2025, 2, 15), // 3월 15일
-    time: "10:00",
+    startTime: "10:00",
+    endTime: "11:00",
     type: "arrival",
     availableMembers: ["김민수", "이지은"],
     allMembers: ["김민수", "이지은", "박정우", "최유리"]
@@ -39,7 +41,8 @@ const mockSchedules: Schedule[] = [
     id: "2", 
     title: "성산일출봉 관광",
     date: new Date(2025, 2, 16), // 3월 16일
-    time: "06:00",
+    startTime: "06:00",
+    endTime: "08:00",
     type: "activity",
     availableMembers: ["김민수", "박정우", "최유리"],
     allMembers: ["김민수", "이지은", "박정우", "최유리"]
@@ -54,23 +57,25 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
   const [isAddingSchedule, setIsAddingSchedule] = useState(false);
   const [newSchedule, setNewSchedule] = useState({
     title: "",
-    time: "",
+    startTime: "",
+    endTime: "",
     type: "activity"
   });
 
   const handleAddSchedule = () => {
-    if (selectedDate && newSchedule.title && newSchedule.time) {
+    if (selectedDate && newSchedule.title && newSchedule.startTime && newSchedule.endTime) {
       const schedule: Schedule = {
         id: Date.now().toString(),
         title: newSchedule.title,
         date: selectedDate,
-        time: newSchedule.time,
+        startTime: newSchedule.startTime,
+        endTime: newSchedule.endTime,
         type: newSchedule.type,
         availableMembers: ["김민수"], // 현재 사용자
         allMembers: allGroupMembers
       };
       setSchedules([...schedules, schedule]);
-      setNewSchedule({ title: "", time: "", type: "activity" });
+      setNewSchedule({ title: "", startTime: "", endTime: "", type: "activity" });
       setIsAddingSchedule(false);
     }
   };
@@ -135,14 +140,25 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
                       placeholder="일정 제목을 입력하세요"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="time">시간</Label>
-                    <Input
-                      id="time"
-                      type="time"
-                      value={newSchedule.time}
-                      onChange={(e) => setNewSchedule({...newSchedule, time: e.target.value})}
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="startTime">시작 시간</Label>
+                      <Input
+                        id="startTime"
+                        type="time"
+                        value={newSchedule.startTime}
+                        onChange={(e) => setNewSchedule({...newSchedule, startTime: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="endTime">종료 시간</Label>
+                      <Input
+                        id="endTime"
+                        type="time"
+                        value={newSchedule.endTime}
+                        onChange={(e) => setNewSchedule({...newSchedule, endTime: e.target.value})}
+                      />
+                    </div>
                   </div>
                   <div className="flex space-x-2">
                     <Button onClick={handleAddSchedule} className="flex-1">
@@ -197,7 +213,7 @@ const GroupCalendar = ({ groupId }: GroupCalendarProps) => {
                     <div className="flex items-start justify-between mb-2">
                       <h3 className="font-medium">{schedule.title}</h3>
                       <Badge className={`${getTypeColor(schedule.type)} text-white`}>
-                        {schedule.time}
+                        {schedule.startTime} - {schedule.endTime}
                       </Badge>
                     </div>
                     
