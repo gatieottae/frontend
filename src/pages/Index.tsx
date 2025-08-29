@@ -5,8 +5,9 @@ import CreateGroupDialog from "@/components/CreateGroupDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Plane, Heart, Star } from "lucide-react";
+import { Search, Plane, Heart, Star, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 // 임시 데이터
 const mockGroups = [
@@ -61,6 +62,7 @@ const mockGroups = [
 ];
 
 const Index = () => {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
   const [currentText, setCurrentText] = useState(0);
@@ -106,7 +108,16 @@ const Index = () => {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-in">
-            <CreateGroupDialog />
+            {user ? (
+              <CreateGroupDialog />
+            ) : (
+              <Link to="/auth">
+                <Button size="lg">
+                  <Plane className="h-4 w-4 mr-2" />
+                  시작하기
+                </Button>
+              </Link>
+            )}
             <Link to="/travel-guide">
               <Button variant="outline" size="lg">
                 <Heart className="h-4 w-4 mr-2" />
@@ -117,47 +128,66 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Search and Filter Section */}
-      <section className="py-8 px-4">
-        <div className="container mx-auto space-y-6">
-          {/* Search Bar */}
-          <div className="relative max-w-md mx-auto">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="여행 그룹 검색..."
-              className="pl-10"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
+      {/* Groups Section - Only show if user is logged in */}
+      {user ? (
+        <section className="py-8 px-4">
+          <div className="container mx-auto space-y-6">
+            {/* Search Bar */}
+            <div className="relative max-w-md mx-auto">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="여행 그룹 검색..."
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
 
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="all">전체</TabsTrigger>
-              <TabsTrigger value="planning">계획 중</TabsTrigger>
-              <TabsTrigger value="voting">투표 중</TabsTrigger>
-              <TabsTrigger value="confirmed">확정됨</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value={activeTab} className="mt-6">
-              {filteredGroups.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-muted-foreground">해당하는 여행 그룹이 없습니다.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredGroups.map((group, index) => (
-                    <div key={group.id} style={{animationDelay: `${index * 0.1}s`}}>
-                      <TravelGroupCard {...group} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </div>
-      </section>
+            {/* Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="all">전체</TabsTrigger>
+                <TabsTrigger value="planning">계획 중</TabsTrigger>
+                <TabsTrigger value="voting">투표 중</TabsTrigger>
+                <TabsTrigger value="confirmed">확정됨</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value={activeTab} className="mt-6">
+                {filteredGroups.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground">해당하는 여행 그룹이 없습니다.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredGroups.map((group, index) => (
+                      <div key={group.id} style={{animationDelay: `${index * 0.1}s`}}>
+                        <TravelGroupCard {...group} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
+        </section>
+      ) : (
+        <section className="py-12 px-4">
+          <div className="container mx-auto text-center">
+            <div className="max-w-md mx-auto bg-card rounded-lg p-8 border">
+              <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-xl font-semibold mb-2">로그인이 필요합니다</h3>
+              <p className="text-muted-foreground mb-6">
+                여행 그룹을 보려면 먼저 로그인해주세요
+              </p>
+              <Link to="/auth">
+                <Button className="w-full">
+                  로그인하기
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 };

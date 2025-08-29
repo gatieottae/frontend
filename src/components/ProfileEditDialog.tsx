@@ -5,6 +5,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Camera, Upload } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -19,16 +21,19 @@ interface Profile {
   name: string;
   email: string;
   bio: string;
+  avatar_url: string;
 }
 
 const ProfileEditDialog = ({ open, onOpenChange, onProfileUpdate }: ProfileEditDialogProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [profile, setProfile] = useState<Profile>({
     name: '',
     email: '',
-    bio: ''
+    bio: '',
+    avatar_url: ''
   });
 
   useEffect(() => {
@@ -52,8 +57,48 @@ const ProfileEditDialog = ({ open, onOpenChange, onProfileUpdate }: ProfileEditD
       setProfile({
         name: data.name || '',
         email: data.email || '',
-        bio: data.bio || ''
+        bio: data.bio || '',
+        avatar_url: data.avatar_url || ''
       });
+    }
+  };
+
+  const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploading(true);
+
+      if (!event.target.files || event.target.files.length === 0) {
+        throw new Error('파일을 선택해주세요.');
+      }
+
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user?.id}/avatar.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      
+      setProfile(prev => ({ ...prev, avatar_url: data.publicUrl }));
+      
+      toast({
+        title: "성공",
+        description: "프로필 사진이 업로드되었습니다.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "오류",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -70,6 +115,7 @@ const ProfileEditDialog = ({ open, onOpenChange, onProfileUpdate }: ProfileEditD
         name: profile.name,
         email: profile.email,
         bio: profile.bio,
+        avatar_url: profile.avatar_url,
         updated_at: new Date().toISOString()
       });
 
@@ -102,6 +148,45 @@ const ProfileEditDialog = ({ open, onOpenChange, onProfileUpdate }: ProfileEditD
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Avatar Upload */}
+          <div className="flex flex-col items-center space-y-4">
+            <Avatar className="h-24 w-24">
+              <AvatarImage src={profile.avatar_url} alt={profile.name} />
+              <AvatarFallback className="text-lg bg-primary/10 text-primary">
+                {profile.name ? profile.name.substring(0, 1) : 'U'}
+              </AvatarFallback>
+            </Avatar>
+            
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="avatar-upload" className="cursor-pointer">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={uploading}
+                  asChild
+                >
+                  <span>
+                    {uploading ? (
+                      <Upload className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Camera className="h-4 w-4 mr-2" />
+                    )}
+                    {uploading ? "업로드 중..." : "사진 변경"}
+                  </span>
+                </Button>
+              </Label>
+              <Input
+                id="avatar-upload"
+                type="file"
+                accept="image/*"
+                onChange={uploadAvatar}
+                disabled={uploading}
+                className="hidden"
+              />
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="name">이름</Label>
             <Input

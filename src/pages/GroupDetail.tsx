@@ -6,11 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Calendar, Users, MessageCircle, Vote, Calculator, ArrowLeft } from "lucide-react";
+import { Calendar, Users, MessageCircle, Vote, Calculator, ArrowLeft, UserPlus } from "lucide-react";
 import GroupCalendar from "@/components/GroupCalendar";
 import GroupChat from "@/components/GroupChat";
 import VotingSystem from "@/components/VotingSystem";
 import PaymentCalculator from "@/components/PaymentCalculator";
+import InviteManagementDialog from "@/components/InviteManagementDialog";
 
 // 임시 데이터
 const mockGroupData = {
@@ -32,6 +33,7 @@ const mockGroupData = {
 const GroupDetail = () => {
   const { groupId } = useParams();
   const [activeTab, setActiveTab] = useState("calendar");
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   
   // 실제로는 groupId를 사용해서 데이터를 가져올 것
   const group = mockGroupData;
@@ -45,6 +47,7 @@ const GroupDetail = () => {
   };
 
   const statusInfo = statusConfig[group.status];
+  const isAdmin = group.members.find(m => m.name === currentUser)?.isAdmin || false;
 
   return (
     <div className="min-h-screen bg-background">
@@ -63,9 +66,17 @@ const GroupDetail = () => {
                 <p className="text-muted-foreground">{group.destination} • {group.dateRange}</p>
               </div>
             </div>
-            <Badge className={`${statusInfo.color} text-white`}>
-              {statusInfo.label}
-            </Badge>
+            <div className="flex items-center space-x-2">
+              {isAdmin && (
+                <Button variant="outline" size="sm" onClick={() => setInviteDialogOpen(true)}>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  친구 초대
+                </Button>
+              )}
+              <Badge className={`${statusInfo.color} text-white`}>
+                {statusInfo.label}
+              </Badge>
+            </div>
           </div>
         </div>
       </div>
@@ -143,6 +154,14 @@ const GroupDetail = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Invite Management Dialog */}
+      <InviteManagementDialog
+        open={inviteDialogOpen}
+        onOpenChange={setInviteDialogOpen}
+        groupId={group.id}
+        groupName={group.title}
+      />
     </div>
   );
 };
