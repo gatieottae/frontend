@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Vote, Clock, CheckCircle, CalendarIcon, Link, MapPin, X } from "lucide-react";
+import { Plus, Vote, Clock, CheckCircle, CalendarIcon, Link, X } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
@@ -104,10 +104,10 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
           votes: option.voters.includes("김민수") ? option.votes - 1 : option.votes,
           voters: option.voters.filter(voter => voter !== "김민수")
         }));
-        
+
         // 새 투표 추가
-        const finalOptions = updatedOptions.map(option => 
-          option.id === optionId 
+        const finalOptions = updatedOptions.map(option =>
+          option.id === optionId
             ? { ...option, votes: option.votes + 1, voters: [...option.voters, "김민수"] }
             : option
         );
@@ -119,7 +119,7 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
   };
 
   const handleCreateVote = () => {
-    if (newVote.title && newVote.category && newVote.endDate && 
+    if (newVote.title && newVote.category && newVote.endDate &&
         newVote.options.filter(opt => opt.text.trim()).length >= 2) {
       const vote: Vote = {
         id: Date.now().toString(),
@@ -140,21 +140,21 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
         totalVoters: 4
       };
       setVotes([vote, ...votes]);
-      setNewVote({ 
-        title: "", 
-        description: "", 
-        category: "", 
+      setNewVote({
+        title: "",
+        description: "",
+        category: "",
         endDate: undefined,
-        options: [{ text: "", link: "" }, { text: "", link: "" }] 
+        options: [{ text: "", link: "" }, { text: "", link: "" }]
       });
       setIsCreatingVote(false);
     }
   };
 
   const addOption = () => {
-    setNewVote({ 
-      ...newVote, 
-      options: [...newVote.options, { text: "", link: "" }] 
+    setNewVote({
+      ...newVote,
+      options: [...newVote.options, { text: "", link: "" }]
     });
   };
 
@@ -191,183 +191,22 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
   };
 
   const canCreateVote = () => {
-    return newVote.title.trim() && 
-           newVote.category && 
-           newVote.endDate && 
+    return newVote.title.trim() &&
+           newVote.category &&
+           newVote.endDate &&
            newVote.options.filter(opt => opt.text.trim()).length >= 2;
   };
 
-  const showLocationSearch = () => {
-    return ["숙소", "음식점", "카페"].includes(newVote.category);
-  };
 
   return (
-    <div className="space-y-6">
-      {/* 헤더 */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">투표</h2>
-        <Dialog open={isCreatingVote} onOpenChange={setIsCreatingVote}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              투표 만들기
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>새 투표 만들기</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-6">
-              {/* 입력 필드 */}
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="vote-title">투표 제목 *</Label>
-                  <Input
-                    id="vote-title"
-                    value={newVote.title}
-                    onChange={(e) => setNewVote({...newVote, title: e.target.value})}
-                    placeholder="투표 제목을 입력하세요"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="vote-description">설명</Label>
-                  <Textarea
-                    id="vote-description"
-                    value={newVote.description}
-                    onChange={(e) => setNewVote({...newVote, description: e.target.value})}
-                    placeholder="투표에 대한 설명을 입력하세요"
-                    rows={3}
-                  />
-                </div>
-
-                <div>
-                  <Label>카테고리 *</Label>
-                  <Select value={newVote.category} onValueChange={(value) => setNewVote({...newVote, category: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="카테고리를 선택하세요" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.value} value={category.value}>
-                          {category.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label>마감일 *</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !newVote.endDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {newVote.endDate ? format(newVote.endDate, "yyyy년 MM월 dd일") : "날짜를 선택하세요"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={newVote.endDate}
-                        onSelect={(date) => setNewVote({...newVote, endDate: date})}
-                        initialFocus
-                        className="pointer-events-auto"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-
-              {/* 선택지 영역 */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label>선택지 (최소 2개 필수)</Label>
-                  {showLocationSearch() && (
-                    <Button variant="outline" size="sm">
-                      <MapPin className="h-4 w-4 mr-2" />
-                      장소 검색
-                    </Button>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  {newVote.options.map((option, index) => (
-                    <Card key={index} className="p-4">
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <Label>선택지 {index + 1}</Label>
-                          {newVote.options.length > 2 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeOption(index)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                        
-                        <Input
-                          value={option.text}
-                          onChange={(e) => updateOption(index, 'text', e.target.value)}
-                          placeholder="선택지 이름을 입력하세요"
-                        />
-                        
-                        <div className="flex items-center space-x-2">
-                          <Link className="h-4 w-4" />
-                          <Input
-                            value={option.link}
-                            onChange={(e) => updateOption(index, 'link', e.target.value)}
-                            placeholder="링크 입력 (선택사항)"
-                            className="flex-1"
-                          />
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-
-                <Button variant="outline" onClick={addOption} className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  선택지 추가
-                </Button>
-              </div>
-
-              {/* 하단 액션 버튼 */}
-              <div className="flex space-x-2 pt-4">
-                <Button 
-                  onClick={handleCreateVote} 
-                  className="flex-1"
-                  disabled={!canCreateVote()}
-                >
-                  만들기
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setIsCreatingVote(false)} 
-                  className="flex-1"
-                >
-                  취소
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+    <div className="space-y-6"> 
 
       {/* 투표 목록 */}
       <div className="space-y-4">
         {votes.map((vote) => {
           const expired = isVoteExpired(vote.endDate);
           const currentStatus = expired ? "ended" : vote.status;
-          
+
           return (
             <Card key={vote.id}>
               <CardHeader>
@@ -405,7 +244,7 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
                   {vote.options.map((option) => {
                     const percentage = vote.totalVoters > 0 ? (option.votes / vote.totalVoters) * 100 : 0;
                     const isMyVote = vote.myVote === option.id;
-                    
+
                     return (
                       <div
                         key={option.id}
@@ -440,6 +279,148 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
             </Card>
           );
         })}
+      </div>
+
+      {/* Floating Action Button for 투표 만들기 */}
+      <div className="fixed bottom-6 right-6 z-50">
+        <Dialog open={isCreatingVote} onOpenChange={setIsCreatingVote}>
+          <DialogTrigger asChild>
+            <Button className="rounded-full shadow-lg bg-primary hover:bg-[rgb(35,100,50)] text-white px-6 py-3 text-base font-semibold">
+              투표 만들기
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>새 투표 만들기</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6">
+              {/* 입력 필드 */}
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="vote-title">투표 제목 *</Label>
+                  <Input
+                    id="vote-title"
+                    value={newVote.title}
+                    onChange={(e) => setNewVote({...newVote, title: e.target.value})}
+                    placeholder="투표 제목을 입력하세요"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="vote-description">설명</Label>
+                  <Textarea
+                    id="vote-description"
+                    value={newVote.description}
+                    onChange={(e) => setNewVote({...newVote, description: e.target.value})}
+                    placeholder="투표에 대한 설명을 입력하세요"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <Label>카테고리 *</Label>
+                  <Select value={newVote.category} onValueChange={(value) => setNewVote({...newVote, category: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="카테고리를 선택하세요" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category.value} value={category.value}>
+                          {category.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>마감일 *</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !newVote.endDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {newVote.endDate ? format(newVote.endDate, "yyyy년 MM월 dd일") : "날짜를 선택하세요"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={newVote.endDate}
+                        onSelect={(date) => setNewVote({...newVote, endDate: date})}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+              {/* 선택지 영역 */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label>선택지 (최소 2개 필수)</Label>
+                </div>
+                <div className="space-y-3">
+                  {newVote.options.map((option, index) => (
+                    <Card key={index} className="p-4">
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label>선택지 {index + 1}</Label>
+                          {newVote.options.length > 2 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeOption(index)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                        <Input
+                          value={option.text}
+                          onChange={(e) => updateOption(index, 'text', e.target.value)}
+                          placeholder="선택지 이름을 입력하세요"
+                        />
+                        <div className="flex items-center space-x-2">
+                          <Link className="h-4 w-4" />
+                          <Input
+                            value={option.link}
+                            onChange={(e) => updateOption(index, 'link', e.target.value)}
+                            placeholder="링크 입력 (선택사항)"
+                            className="flex-1"
+                          />
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+                <Button variant="outline" onClick={addOption} className="w-full">
+                  <Plus className="h-4 w-4 mr-2" />
+                  선택지 추가
+                </Button>
+              </div>
+              {/* 하단 액션 버튼 */}
+              <div className="flex space-x-2 pt-4">
+                <Button
+                  onClick={handleCreateVote}
+                  className="flex-1"
+                  disabled={!canCreateVote()}
+                >
+                  만들기
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsCreatingVote(false)}
+                  className="flex-1"
+                >
+                  취소
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
