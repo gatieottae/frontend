@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Calculator, Receipt, Edit2, Trash2, Users } from "lucide-react";
+import { Plus, Calculator, Receipt, Edit2, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import EditExpenseDialog from "./EditExpenseDialog";
 
@@ -116,13 +117,6 @@ const PaymentCalculator = ({ groupId, members, currentUser }: PaymentCalculatorP
     setExpenses(expenses.map(exp => 
       exp.id === updatedExpense.id ? updatedExpense : exp
     ));
-  };
-
-  const handleDeleteExpense = (expenseId: string) => {
-    setExpenses(expenses.filter(exp => exp.id !== expenseId));
-    toast({
-      title: "지출이 삭제되었습니다",
-    });
   };
 
   const toggleSplitMember = (memberId: string) => {
@@ -272,22 +266,13 @@ const PaymentCalculator = ({ groupId, members, currentUser }: PaymentCalculatorP
                   </div>
                   <div className="text-right flex items-center space-x-2">
                     <div className="font-bold">₩{expense.amount.toLocaleString()}</div>
-                    <div className="flex space-x-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditingExpense(expense)}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteExpense(expense.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditingExpense(expense)}
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               ))}

@@ -5,12 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, User, MapPin, Calendar, Edit, Star, Settings, LogOut } from "lucide-react";
+import { ArrowLeft, User, MapPin, Calendar, Edit, Star, LogOut } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import ProfileEditDialog from "@/components/ProfileEditDialog";
-import SettingsDialog from "@/components/SettingsDialog";
 import { useToast } from "@/hooks/use-toast";
 
 interface UserProfile {
@@ -18,6 +17,7 @@ interface UserProfile {
   email: string;
   bio: string;
   join_date: string;
+  avatar_url: string;
 }
 
 const Profile = () => {
@@ -26,7 +26,6 @@ const Profile = () => {
   const { toast } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileEditOpen, setProfileEditOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [recentTrips] = useState([
@@ -78,7 +77,8 @@ const Profile = () => {
         name: data.name || '사용자',
         email: data.email || user.email || '',
         bio: data.bio || '여행을 사랑하는 사용자입니다.',
-        join_date: data.join_date ? new Date(data.join_date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' }) : '2024년 1월'
+        join_date: data.join_date ? new Date(data.join_date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' }) : '2024년 1월',
+        avatar_url: data.avatar_url || ''
       });
     }
     setLoading(false);
@@ -128,11 +128,6 @@ const Profile = () => {
               <h1 className="text-xl font-bold text-foreground">마이페이지</h1>
             </div>
           </div>
-          
-          <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)}>
-            <Settings className="h-4 w-4 mr-2" />
-            설정
-          </Button>
         </div>
       </div>
 
@@ -145,7 +140,7 @@ const Profile = () => {
               <div className="flex items-start justify-between">
                 <div className="flex items-center space-x-4">
                   <Avatar className="h-20 w-20">
-                    <AvatarImage src="" alt={profile.name} />
+                    <AvatarImage src={profile.avatar_url} alt={profile.name} />
                     <AvatarFallback className="text-lg bg-primary/10 text-primary">
                       {profile.name.substring(0, 1)}
                     </AvatarFallback>
@@ -201,21 +196,23 @@ const Profile = () => {
             <CardContent className="space-y-4">
               {recentTrips.map((trip, index) => (
                 <div key={trip.id}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <MapPin className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-foreground">{trip.name}</h4>
-                        <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                          <span>{trip.dates}</span>
-                          <span>참가자 {trip.participants}명</span>
+                  <Link to={`/group/${trip.id}`} className="block hover:bg-muted/50 p-2 -m-2 rounded-lg transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                          <MapPin className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-foreground">{trip.name}</h4>
+                          <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                            <span>{trip.dates}</span>
+                            <span>참가자 {trip.participants}명</span>
+                          </div>
                         </div>
                       </div>
+                      {getStatusBadge(trip.status)}
                     </div>
-                    {getStatusBadge(trip.status)}
-                  </div>
+                  </Link>
                   {index < recentTrips.length - 1 && <Separator className="mt-4" />}
                 </div>
               ))}
@@ -242,11 +239,6 @@ const Profile = () => {
         open={profileEditOpen} 
         onOpenChange={setProfileEditOpen}
         onProfileUpdate={fetchProfile}
-      />
-      
-      <SettingsDialog 
-        open={settingsOpen} 
-        onOpenChange={setSettingsOpen}
       />
     </div>
   );

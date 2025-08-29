@@ -132,6 +132,9 @@ const ProfileEditDialog = ({ open, onOpenChange, onProfileUpdate }: ProfileEditD
       });
       onProfileUpdate();
       onOpenChange(false);
+      
+      // 페이지 새로고침으로 이미지 업데이트 반영
+      window.location.reload();
     }
     
     setLoading(false);
