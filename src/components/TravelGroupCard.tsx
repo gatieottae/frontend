@@ -17,11 +17,37 @@ interface TravelGroupCardProps {
   members: Array<{ name: string; avatar?: string }>;
 }
 
-const statusConfig = {
-  planning: { label: "계획 중", color: "bg-blue-500" },
-  voting: { label: "투표 중", color: "bg-orange-500" },
-  confirmed: { label: "확정됨", color: "bg-green-500" },
-  completed: { label: "완료", color: "bg-gray-500" }
+// D-day 계산 함수
+const calculateDDay = (dateRange: string) => {
+  // "3월 15일 - 18일" 형식에서 시작일 추출
+  const startDateMatch = dateRange.match(/(\d+)월\s*(\d+)일/);
+  if (!startDateMatch) return null;
+  
+  const month = parseInt(startDateMatch[1]);
+  const day = parseInt(startDateMatch[2]);
+  const currentYear = new Date().getFullYear();
+  
+  // 올해 날짜로 계산 (실제로는 년도도 받아야 함)
+  const travelStartDate = new Date(currentYear, month - 1, day);
+  const endDateMatch = dateRange.match(/(\d+)일$/);
+  const endDay = endDateMatch ? parseInt(endDateMatch[1]) : day;
+  const travelEndDate = new Date(currentYear, month - 1, endDay);
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const diffTime = travelStartDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays > 0) {
+    return `D-${diffDays}`;
+  } else if (diffDays === 0 || (today >= travelStartDate && today <= travelEndDate)) {
+    return "여행 중";
+  } else {
+    const endDiffTime = today.getTime() - travelEndDate.getTime();
+    const endDiffDays = Math.ceil(endDiffTime / (1000 * 60 * 60 * 24));
+    return `D+${endDiffDays}`;
+  }
 };
 
 const TravelGroupCard = ({
@@ -35,7 +61,7 @@ const TravelGroupCard = ({
   unreadCount,
   members
 }: TravelGroupCardProps) => {
-  const statusInfo = statusConfig[status];
+  const dDay = calculateDDay(dateRange);
 
   return (
     <Link to={`/group/${id}`}>
@@ -49,9 +75,18 @@ const TravelGroupCard = ({
                 {destination}
               </div>
             </div>
-            <Badge className={`${statusInfo.color} text-white`}>
-              {statusInfo.label}
-            </Badge>
+            <div className="flex items-center space-x-2">
+              {status === "voting" && (
+                <Badge className="bg-orange-500 text-white">
+                  투표 중
+                </Badge>
+              )}
+              {dDay && (
+                <Badge variant="outline" className="border-primary text-primary">
+                  {dDay}
+                </Badge>
+              )}
+            </div>
           </div>
         </CardHeader>
         
