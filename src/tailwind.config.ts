@@ -20,7 +20,7 @@ export default {
 		},
 		extend: {
 			fontFamily: {
-				sans: ['Inter', 'system-ui', 'sans-serif'],
+				sans: ['Jalnan2', 'Inter', 'system-ui', 'sans-serif'],
 			},
 			colors: {
 				border: 'hsl(var(--border))',

@@ -1,6 +1,5 @@
 
 import { useState, useEffect } from "react";
-import Header from "@/components/Header";
 import TravelGroupCard from "@/components/TravelGroupCard";
 import CreateGroupDialog from "@/components/CreateGroupDialog";
 import { Button } from "@/components/ui/button";
@@ -66,7 +65,7 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [currentText, setCurrentText] = useState(0);
   
-  const textOptions = ["친구들과", "연인과", "가족과", "동료와"];
+  const textOptions = ["친구와", "연인과", "가족과", "동료와"];
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -86,7 +85,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
       
       {/* Hero Section */}
       <section className="py-12 px-4">
@@ -131,25 +129,6 @@ const Index = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-          </div>
-
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div className="bg-gradient-to-r from-primary to-primary/80 p-6 rounded-lg text-foreground text-center animate-float">
-              <Plane className="h-8 w-8 mx-auto mb-2 text-foreground" />
-              <h3 className="text-2xl font-bold">3</h3>
-              <p className="text-sm text-muted-foreground">참여 중인 여행</p>
-            </div>
-            <div className="bg-gradient-to-r from-accent to-accent/80 p-6 rounded-lg text-foreground text-center animate-float" style={{animationDelay: '1s'}}>
-              <Heart className="h-8 w-8 mx-auto mb-2 text-foreground" />
-              <h3 className="text-2xl font-bold">12</h3>
-              <p className="text-sm text-muted-foreground">찜한 장소</p>
-            </div>
-            <div className="bg-gradient-to-r from-secondary to-secondary/80 p-6 rounded-lg text-foreground text-center animate-float" style={{animationDelay: '2s'}}>
-              <Star className="h-8 w-8 mx-auto mb-2 text-foreground" />
-              <h3 className="text-2xl font-bold">4.8</h3>
-              <p className="text-sm text-muted-foreground">여행 만족도</p>
-            </div>
           </div>
 
           {/* Tabs */}
