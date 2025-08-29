@@ -286,10 +286,232 @@ const PaymentCalculator = ({ groupId, members, currentUser }: PaymentCalculatorP
     <div>
       <Tabs defaultValue="my-settlement" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="overall-settlement">전체 정산</TabsTrigger>
+          <TabsTrigger value="history">지출 내역</TabsTrigger>
           <TabsTrigger value="my-settlement">나의 정산</TabsTrigger>
-          <TabsTrigger value="history">지출 내역 및 요약</TabsTrigger>
+          <TabsTrigger value="overall-settlement">전체 정산 현황</TabsTrigger>
         </TabsList>
+
+
+        <TabsContent value="history">
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>지출 내역</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {expenses.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">
+                    아직 지출 내역이 없습니다.
+                  </p>
+              ) : (
+                  <div className="space-y-3">
+                    {expenses.map(expense => (
+                        <div key={expense.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div>
+                            <h4 className="font-medium">{expense.title}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {expense.paidBy}가 지불 • {expense.date}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              분담자: {expense.splitAmong.join(', ')}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              분담 방식: {expense.splitType === "equal" ? "균등분할" : "개별금액"}
+                            </p>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <span className="font-bold">{formatCurrency(expense.amount)}</span>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteExpense(expense.id)}
+                                className="text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                    ))}
+                  </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <Card>
+              <CardContent className="p-4 text-center">
+                <DollarSign className="h-8 w-8 mx-auto mb-2 text-primary" />
+                <p className="text-2xl font-bold">{formatCurrency(totalExpenses)}</p>
+                <p className="text-sm text-muted-foreground">총 지출</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <Calculator className="h-8 w-8 mx-auto mb-2 text-primary" />
+                <p className="text-2xl font-bold">{expenses.length}개</p>
+                <p className="text-sm text-muted-foreground">지출 항목</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="h-8 w-8 mx-auto mb-2 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold">
+                  {members.length}
+                </div>
+                <p className="text-2xl font-bold">{formatCurrency(totalExpenses / members.length)}</p>
+                <p className="text-sm text-muted-foreground">1인당 평균</p>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="my-settlement">
+          <div className="space-y-6 mt-4">
+            {/* 내가 받을 돈 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>내가 받을 돈</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {myTransfersToReceive.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-4">
+                      받을 돈이 없습니다.
+                    </p>
+                ) : (
+                    <div className="space-y-3">
+                      {myTransfersToReceive.map((transfer, index) => (
+                          <div key={index} className="border rounded-lg p-4 flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">
+                                {transfer.from}님이 {formatCurrency(transfer.amount)}을(를) 보내야 합니다.
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {getTransferStatusText(transfer.from, transfer.to)}
+                              </p>
+                            </div>
+                            <button
+                                className="bg-green-700 text-white px-4 py-1 rounded-md text-sm"
+                                onClick={() => alert("보채기 요청 완료")}
+                            >
+                              보채기
+                            </button>
+                          </div>
+                      ))}
+                    </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 내가 보낼 돈 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>내가 보낼 돈</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  // Example transfer for visual test purposes
+                  const exampleSendTransfer = {
+                    from: currentUser,
+                    to: "최유리",
+                    amount: 90000,
+                    sent: false,
+                    received: false,
+                  };
+                  const allTransfersToSend = [...(myTransfersToSend.length === 0 ? [exampleSendTransfer] : myTransfersToSend)];
+                  // State to track "sent" per transfer (by index or key)
+                  const [sentStates, setSentStates] = useState<{ [key: string]: boolean }>({});
+                  const handleSentClick = (transferKey: string) => {
+                    setSentStates(prev => ({ ...prev, [transferKey]: true }));
+                  };
+                  return (
+                      <>
+                        {allTransfersToSend.length > 0 ? (
+                            <>
+                              {/* 예시 섹션 (첫 번째 pending payment만 보여줌) */}
+                              <div className="rounded-md border p-4 mb-4">
+                                <div className="font-bold">
+                                  {allTransfersToSend[0].to}님이 {formatCurrency(allTransfersToSend[0].amount)}을(를) 보내야 합니다.
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {allTransfersToSend[0].to} ➝ 아직 송금 안함
+                                </div>
+                              </div>
+                              <div className="space-y-3">
+                                {allTransfersToSend.map((transfer, index) => {
+                                  const transferKey = `${transfer.from}-${transfer.to}-${transfer.amount}`;
+                                  // If paymentStatuses already has .sent true, always show "확인 대기"
+                                  const status = getPaymentStatus(transfer.from, transfer.to);
+                                  const sent = status?.sent || sentStates[transferKey];
+                                  return (
+                                      <div key={index} className="border rounded-lg p-4 flex items-center justify-between">
+                                        <div>
+                                          <p className="font-medium">
+                                            {transfer.to}님에게 {formatCurrency(transfer.amount)}을(를) 보내야 합니다.
+                                          </p>
+                                          <p className="text-xs text-muted-foreground">
+                                            {typeof getTransferStatusText === "function"
+                                                ? getTransferStatusText(transfer.from, transfer.to)
+                                                : ""}
+                                          </p>
+                                        </div>
+                                        <button
+                                            className="bg-green-700 text-white px-4 py-1 rounded-md text-sm"
+                                            onClick={() => {
+                                              if (!sent) {
+                                                handleSentClick(transferKey);
+                                                togglePaymentSent(transfer.from, transfer.to, transfer.amount);
+                                              }
+                                            }}
+                                        >
+                                          {sent ? "확인 대기" : "보냈어요"}
+                                        </button>
+                                      </div>
+                                  );
+                                })}
+                              </div>
+                            </>
+                        ) : (
+                            <p className="text-muted-foreground text-center py-4">
+                              보낼 돈이 없습니다.
+                            </p>
+                        )}
+                      </>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+
+            {/* 완료된 정산 */}
+            <Card>
+              <CardHeader>
+                <CardTitle>완료된 정산</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {completedTransfers.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-4">
+                      완료된 정산 내역이 없습니다.
+                    </p>
+                ) : (
+                    <div className="space-y-3">
+                      {completedTransfers.map((transfer, index) => (
+                          <div key={index} className="border rounded-lg p-4 flex items-center justify-between">
+                            <div>
+                              <p className="font-medium">
+                                {transfer.from}님이 {transfer.to}님에게 {formatCurrency(transfer.amount)}을(를) 보냈습니다.
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {getTransferStatusText(transfer.from, transfer.to)}
+                              </p>
+                            </div>
+                            <Badge variant="secondary">완료</Badge>
+                          </div>
+                      ))}
+                    </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
         <TabsContent value="overall-settlement">
           <div className="space-y-6 mt-4">
@@ -334,226 +556,10 @@ const PaymentCalculator = ({ groupId, members, currentUser }: PaymentCalculatorP
           </div>
         </TabsContent>
 
-      <TabsContent value="my-settlement">
-          <div className="space-y-6 mt-4">
-            {/* 내가 받을 돈 */}
-            <Card>
-              <CardHeader>
-                <CardTitle>내가 받을 돈</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {myTransfersToReceive.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-4">
-                    받을 돈이 없습니다.
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {myTransfersToReceive.map((transfer, index) => (
-                      <div key={index} className="border rounded-lg p-4 flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">
-                            {transfer.from}님이 {formatCurrency(transfer.amount)}을(를) 보내야 합니다.
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {getTransferStatusText(transfer.from, transfer.to)}
-                          </p>
-                        </div>
-                        <button
-                          className="bg-green-700 text-white px-4 py-1 rounded-md text-sm"
-                          onClick={() => alert("보채기 요청 완료")}
-                        >
-                          보채기
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
 
-            {/* 내가 보낼 돈 */}
-            <Card>
-              <CardHeader>
-                <CardTitle>내가 보낼 돈</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {(() => {
-                  // Example transfer for visual test purposes
-                  const exampleSendTransfer = {
-                    from: currentUser,
-                    to: "최유리",
-                    amount: 90000,
-                    sent: false,
-                    received: false,
-                  };
-                  const allTransfersToSend = [...(myTransfersToSend.length === 0 ? [exampleSendTransfer] : myTransfersToSend)];
-                  // State to track "sent" per transfer (by index or key)
-                  const [sentStates, setSentStates] = useState<{ [key: string]: boolean }>({});
-                  const handleSentClick = (transferKey: string) => {
-                    setSentStates(prev => ({ ...prev, [transferKey]: true }));
-                  };
-                  return (
-                    <>
-                      {allTransfersToSend.length > 0 ? (
-                        <>
-                          {/* 예시 섹션 (첫 번째 pending payment만 보여줌) */}
-                          <div className="rounded-md border p-4 mb-4">
-                            <div className="font-bold">
-                              {allTransfersToSend[0].to}님이 {formatCurrency(allTransfersToSend[0].amount)}을(를) 보내야 합니다.
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {allTransfersToSend[0].to} ➝ 아직 송금 안함
-                            </div>
-                          </div>
-                          <div className="space-y-3">
-                            {allTransfersToSend.map((transfer, index) => {
-                              const transferKey = `${transfer.from}-${transfer.to}-${transfer.amount}`;
-                              // If paymentStatuses already has .sent true, always show "확인 대기"
-                              const status = getPaymentStatus(transfer.from, transfer.to);
-                              const sent = status?.sent || sentStates[transferKey];
-                              return (
-                                <div key={index} className="border rounded-lg p-4 flex items-center justify-between">
-                                  <div>
-                                    <p className="font-medium">
-                                      {transfer.to}님에게 {formatCurrency(transfer.amount)}을(를) 보내야 합니다.
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {typeof getTransferStatusText === "function"
-                                        ? getTransferStatusText(transfer.from, transfer.to)
-                                        : ""}
-                                    </p>
-                                  </div>
-                                  <button
-                                    className="bg-green-700 text-white px-4 py-1 rounded-md text-sm"
-                                    onClick={() => {
-                                      if (!sent) {
-                                        handleSentClick(transferKey);
-                                        togglePaymentSent(transfer.from, transfer.to, transfer.amount);
-                                      }
-                                    }}
-                                  >
-                                    {sent ? "확인 대기" : "보냈어요"}
-                                  </button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </>
-                      ) : (
-                        <p className="text-muted-foreground text-center py-4">
-                          보낼 돈이 없습니다.
-                        </p>
-                      )}
-                    </>
-                  );
-                })()}
-              </CardContent>
-            </Card>
 
-            {/* 완료된 정산 */}
-            <Card>
-              <CardHeader>
-                <CardTitle>완료된 정산</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {completedTransfers.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-4">
-                    완료된 정산 내역이 없습니다.
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {completedTransfers.map((transfer, index) => (
-                      <div key={index} className="border rounded-lg p-4 flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">
-                            {transfer.from}님이 {transfer.to}님에게 {formatCurrency(transfer.amount)}을(를) 보냈습니다.
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {getTransferStatusText(transfer.from, transfer.to)}
-                          </p>
-                        </div>
-                        <Badge variant="secondary">완료</Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
 
-        <TabsContent value="history">
-          <Card className="mt-4">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>지출 내역</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {expenses.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">
-                  아직 지출 내역이 없습니다.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {expenses.map(expense => (
-                    <div key={expense.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <h4 className="font-medium">{expense.title}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {expense.paidBy}가 지불 • {expense.date}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          분담자: {expense.splitAmong.join(', ')}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          분담 방식: {expense.splitType === "equal" ? "균등분할" : "개별금액"}
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-3">
-                        <span className="font-bold">{formatCurrency(expense.amount)}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteExpense(expense.id)}
-                          className="text-red-500 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-            <Card>
-              <CardContent className="p-4 text-center">
-                <DollarSign className="h-8 w-8 mx-auto mb-2 text-primary" />
-                <p className="text-2xl font-bold">{formatCurrency(totalExpenses)}</p>
-                <p className="text-sm text-muted-foreground">총 지출</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <Calculator className="h-8 w-8 mx-auto mb-2 text-primary" />
-                <p className="text-2xl font-bold">{expenses.length}개</p>
-                <p className="text-sm text-muted-foreground">지출 항목</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-4 text-center">
-                <div className="h-8 w-8 mx-auto mb-2 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold">
-                  {members.length}
-                </div>
-                <p className="text-2xl font-bold">{formatCurrency(totalExpenses / members.length)}</p>
-                <p className="text-sm text-muted-foreground">1인당 평균</p>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
       </Tabs>
 
       <div className="fixed bottom-6 right-6 z-50">
