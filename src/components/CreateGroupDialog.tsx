@@ -1,14 +1,17 @@
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, MapPin, Calendar, Users } from "lucide-react";
+import { MapPin, Users } from "lucide-react";
 
-const CreateGroupDialog = () => {
-  const [open, setOpen] = useState(false);
+interface CreateGroupDialogProps {
+  onClose: () => void;
+}
+
+const CreateGroupDialog = ({ onClose }: CreateGroupDialogProps) => {
   const [formData, setFormData] = useState({
     title: "",
     destination: "",
@@ -19,19 +22,12 @@ const CreateGroupDialog = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Creating group with data:", formData);
-    setOpen(false);
+    onClose();
     // 실제로는 API 호출하여 그룹 생성
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="btn-gradient">
-          <Plus className="h-4 w-4 mr-2" />
-          새 여행 그룹
-        </Button>
-      </DialogTrigger>
-      
+    <Dialog open={true} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">새로운 여행 그룹 만들기</DialogTitle>
@@ -93,7 +89,7 @@ const CreateGroupDialog = () => {
           </div>
           
           <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+            <Button type="button" variant="outline" onClick={onClose}>
               취소
             </Button>
             <Button type="submit" className="btn-primary">
