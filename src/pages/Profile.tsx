@@ -1,13 +1,12 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, User, MapPin, Calendar, Edit, Star, LogOut } from "lucide-react";
+import { ArrowLeft, User, Calendar, Edit, LogOut } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import ProfileEditDialog from "@/components/ProfileEditDialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -63,23 +62,17 @@ const Profile = () => {
     if (!user) return;
 
     setLoading(true);
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-
-    if (error) {
-      console.error('Error fetching profile:', error);
-    } else if (data) {
-      setProfile({
-        name: data.name || '사용자',
-        email: data.email || user.email || '',
-        bio: data.bio || '여행을 사랑하는 사용자입니다.',
-        join_date: data.join_date ? new Date(data.join_date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' }) : '2024년 1월',
-        avatar_url: data.avatar_url || user.user_metadata?.avatar_url || ''
-      });
-    }
+    
+    // TODO: Replace with your backend API call
+    // Mock profile data
+    setProfile({
+      name: user.name || '사용자',
+      email: user.email || '',
+      bio: '여행을 사랑하는 사용자입니다.',
+      join_date: '2024년 1월',
+      avatar_url: ''
+    });
+    
     setLoading(false);
   };
 
@@ -144,7 +137,6 @@ const Profile = () => {
                       src={profile.avatar_url ? `${profile.avatar_url}` : undefined}
                       alt={profile.name}
                       onError={(e) => {
-                        // if the image fails, clear src so AvatarFallback shows
                         (e.currentTarget as HTMLImageElement).src = '';
                       }}
                     />

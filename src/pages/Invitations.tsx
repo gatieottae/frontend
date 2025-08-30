@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Mail, Check, X, Clock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 
 interface Invitation {
   id: string;
@@ -38,15 +37,9 @@ const Invitations = () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from('invitations')
-        .select('*')
-        .or(`invited_user_id.eq.${user.id},invited_email.eq.${user.email}`)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setInvitations(data || []);
+      // TODO: Replace with your backend API call
+      // Mock invitations data
+      setInvitations([]);
     } catch (error) {
       console.error('Error fetching invitations:', error);
     } finally {
@@ -56,33 +49,7 @@ const Invitations = () => {
 
   const handleInvitationResponse = async (invitationId: string, action: 'accept' | 'reject') => {
     try {
-      const invitation = invitations.find(inv => inv.id === invitationId);
-      if (!invitation) return;
-
-      if (action === 'accept') {
-        // Add user to group
-        const { error: memberError } = await supabase
-          .from('group_members')
-          .insert({
-            group_id: invitation.group_id,
-            user_id: user?.id,
-            role: 'member'
-          });
-
-        if (memberError) throw memberError;
-      }
-
-      // Update invitation status
-      const { error } = await supabase
-        .from('invitations')
-        .update({ 
-          status: action === 'accept' ? 'accepted' : 'rejected',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', invitationId);
-
-      if (error) throw error;
-
+      // TODO: Replace with your backend API call
       toast({
         title: action === 'accept' ? "초대를 수락했습니다" : "초대를 거절했습니다",
         description: action === 'accept' ? "그룹에 참여되었습니다." : "초대가 거절되었습니다.",
@@ -91,7 +58,7 @@ const Invitations = () => {
       await fetchInvitations();
 
       if (action === 'accept') {
-        navigate(`/group/${invitation.group_id}`);
+        navigate(`/group/1`);
       }
     } catch (error) {
       toast({

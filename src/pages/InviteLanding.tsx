@@ -7,7 +7,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Users, Calendar, MapPin, AlertCircle, CheckCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 
 interface GroupInfo {
   id: string;
@@ -40,43 +39,16 @@ const InviteLanding = () => {
     try {
       setLoading(true);
       
-      const { data: invitation, error } = await supabase
-        .from('invitations')
-        .select('*')
-        .eq('invite_code', inviteCode)
-        .eq('status', 'pending')
-        .single();
-
-      if (error || !invitation) {
+      // TODO: Replace with your backend API call
+      // Mock validation
+      if (inviteCode === 'invalid') {
         setInviteValid(false);
         return;
       }
 
-      // Check if invitation is expired
-      if (invitation.expires_at && new Date(invitation.expires_at) < new Date()) {
-        setInviteValid(false);
-        return;
-      }
-
-      // Check if user is already a member
-      if (user) {
-        const { data: membership } = await supabase
-          .from('group_members')
-          .select('*')
-          .eq('group_id', invitation.group_id)
-          .eq('user_id', user.id)
-          .single();
-
-        if (membership) {
-          setAlreadyMember(true);
-          navigate(`/group/${invitation.group_id}`);
-          return;
-        }
-      }
-
-      // Mock group info - in real app, fetch from groups table
+      // Mock group info
       setGroupInfo({
-        id: invitation.group_id,
+        id: '1',
         title: "제주도 힐링 여행 🌴",
         destination: "제주도",
         memberCount: 4,
@@ -109,29 +81,8 @@ const InviteLanding = () => {
     try {
       setJoining(true);
 
-      // Add user to group
-      const { error: memberError } = await supabase
-        .from('group_members')
-        .insert({
-          group_id: groupInfo.id,
-          user_id: user.id,
-          role: 'member'
-        });
-
-      if (memberError) throw memberError;
-
-      // Update invitation status
-      const { error: inviteError } = await supabase
-        .from('invitations')
-        .update({ 
-          status: 'accepted',
-          invited_user_id: user.id,
-          updated_at: new Date().toISOString()
-        })
-        .eq('invite_code', inviteCode);
-
-      if (inviteError) throw inviteError;
-
+      // TODO: Replace with your backend API call
+      
       toast({
         title: "그룹에 참여했습니다!",
         description: `${groupInfo.title}에 오신 것을 환영합니다.`,

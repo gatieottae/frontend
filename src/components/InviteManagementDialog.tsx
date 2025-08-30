@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -9,7 +10,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Copy, RefreshCw, Clock, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 interface InviteManagementDialogProps {
@@ -34,7 +34,6 @@ const InviteManagementDialog = ({ open, onOpenChange, groupId, groupName }: Invi
   const [loading, setLoading] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [expiryTime, setExpiryTime] = useState("1hour");
-  const [permission, setPermission] = useState("anyone");
   const [invitations, setInvitations] = useState<Invitation[]>([]);
 
   useEffect(() => {
@@ -46,14 +45,17 @@ const InviteManagementDialog = ({ open, onOpenChange, groupId, groupName }: Invi
 
   const fetchInvitations = async () => {
     try {
-      const { data, error } = await supabase
-        .from('invitations')
-        .select('*')
-        .eq('group_id', groupId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setInvitations(data || []);
+      // TODO: Replace with your backend API call
+      // Mock invitations data
+      setInvitations([
+        {
+          id: '1',
+          invite_code: 'SAMPLE123',
+          status: 'pending',
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          created_at: new Date().toISOString()
+        }
+      ]);
     } catch (error) {
       console.error('Error fetching invitations:', error);
     }
@@ -61,36 +63,12 @@ const InviteManagementDialog = ({ open, onOpenChange, groupId, groupName }: Invi
 
   const generateInviteCode = async () => {
     try {
-      const { data, error } = await supabase
-        .from('invitations')
-        .insert({
-          group_id: groupId,
-          invited_by: user?.id,
-          expires_at: getExpiryDate(expiryTime)
-        })
-        .select('invite_code')
-        .single();
-
-      if (error) throw error;
-      setInviteCode(data.invite_code);
+      // TODO: Replace with your backend API call
+      // Generate mock invite code
+      const mockCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+      setInviteCode(mockCode);
     } catch (error) {
       console.error('Error generating invite code:', error);
-    }
-  };
-
-  const getExpiryDate = (time: string) => {
-    const now = new Date();
-    switch (time) {
-      case '10min':
-        return new Date(now.getTime() + 10 * 60 * 1000).toISOString();
-      case '1hour':
-        return new Date(now.getTime() + 60 * 60 * 1000).toISOString();
-      case '1day':
-        return new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
-      case 'never':
-        return null;
-      default:
-        return new Date(now.getTime() + 60 * 60 * 1000).toISOString();
     }
   };
 
@@ -117,7 +95,6 @@ const InviteManagementDialog = ({ open, onOpenChange, groupId, groupName }: Invi
   const getStatusBadge = (expires_at?: string | null) => {
     const now = new Date();
     if (!expires_at) {
-      // no expiry -> always active
       return <Badge variant="default">활성</Badge>;
     }
     const exp = new Date(expires_at);
@@ -181,7 +158,6 @@ const InviteManagementDialog = ({ open, onOpenChange, groupId, groupName }: Invi
                       </SelectContent>
                     </Select>
                   </div>
-
                 </div>
 
                 <Button onClick={regenerateCode} disabled={loading} className="w-full">
@@ -204,20 +180,6 @@ const InviteManagementDialog = ({ open, onOpenChange, groupId, groupName }: Invi
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-between p-3 border rounded-lg opacity-50 mb-4">
-                  <div>
-                    <p className="font-medium">
-                      코드: SAMPLECODE123
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      만료: 2024-12-31 23:59
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      생성일: 2024-01-01
-                    </p>
-                  </div>
-                  <Badge variant="secondary">만료</Badge>
-                </div>
                 {invitations.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
