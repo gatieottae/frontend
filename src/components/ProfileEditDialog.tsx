@@ -8,7 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera, Upload } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface ProfileEditDialogProps {
@@ -45,20 +44,26 @@ const ProfileEditDialog = ({ open, onOpenChange, onProfileUpdate }: ProfileEditD
   const fetchProfile = async () => {
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
-
-    if (error) {
+    try {
+      // TODO: Replace with actual API call
+      const response = await fetch(`/api/profiles/${user.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setProfile({
+          name: data.name || '',
+          email: data.email || '',
+          bio: data.bio || '',
+          avatar_url: data.avatar_url || ''
+        });
+      }
+    } catch (error) {
       console.error('Error fetching profile:', error);
-    } else if (data) {
+      // Set default values if API fails
       setProfile({
-        name: data.name || '',
-        email: data.email || '',
-        bio: data.bio || '',
-        avatar_url: data.avatar_url || ''
+        name: user.name || '',
+        email: user.email || '',
+        bio: '',
+        avatar_url: ''
       });
     }
   };
@@ -72,20 +77,22 @@ const ProfileEditDialog = ({ open, onOpenChange, onProfileUpdate }: ProfileEditD
       }
 
       const file = event.target.files[0];
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${user?.id}/avatar.${fileExt}`;
+      
+      // TODO: Replace with actual file upload API
+      const formData = new FormData();
+      formData.append('avatar', file);
+      
+      const response = await fetch(`/api/profiles/${user?.id}/avatar`, {
+        method: 'POST',
+        body: formData,
+      });
 
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) {
-        throw uploadError;
+      if (!response.ok) {
+        throw new Error('파일 업로드에 실패했습니다.');
       }
 
-      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-      
-      setProfile(prev => ({ ...prev, avatar_url: data.publicUrl }));
+      const data = await response.json();
+      setProfile(prev => ({ ...prev, avatar_url: data.avatar_url }));
       
       toast({
         title: "성공",
@@ -108,33 +115,40 @@ const ProfileEditDialog = ({ open, onOpenChange, onProfileUpdate }: ProfileEditD
 
     setLoading(true);
     
-    const { error } = await supabase
-      .from('profiles')
-      .upsert({
-        id: user.id,
-        name: profile.name,
-        email: profile.email,
-        bio: profile.bio,
-        avatar_url: profile.avatar_url,
-        updated_at: new Date().toISOString()
+    try {
+      // TODO: Replace with actual API call
+      const response = await fetch(`/api/profiles/${user.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: profile.name,
+          email: profile.email,
+          bio: profile.bio,
+          avatar_url: profile.avatar_url,
+        }),
       });
 
-    if (error) {
-      toast({
-        title: "오류",
-        description: "프로필 업데이트에 실패했습니다.",
-        variant: "destructive",
-      });
-    } else {
+      if (!response.ok) {
+        throw new Error('프로필 업데이트에 실패했습니다.');
+      }
+
       toast({
         title: "성공",
         description: "프로필이 업데이트되었습니다.",
       });
       onProfileUpdate();
       onOpenChange(false);
+    } catch (error: any) {
+      toast({
+        title: "오류",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   return (
