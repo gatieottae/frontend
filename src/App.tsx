@@ -12,6 +12,7 @@ import AuthorGuides from "@/pages/AuthorGuides";
 import GroupDetail from "@/pages/GroupDetail";
 import Profile from "@/pages/Profile";
 import Auth from "@/pages/Auth";
+import AuthCallback from "@/pages/AuthCallback";
 import Notifications from "@/pages/Notifications";
 import InviteLanding from "@/pages/InviteLanding";
 import Invitations from "@/pages/Invitations";
@@ -36,6 +37,7 @@ function App() {
               <Route path="/group/:groupId" element={<GroupDetail />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/invite/:inviteCode" element={<InviteLanding />} />
               <Route path="/invitations" element={<Invitations />} />
