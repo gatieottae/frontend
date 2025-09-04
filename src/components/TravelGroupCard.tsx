@@ -78,10 +78,6 @@ const TravelGroupCard = ({
               <Calendar className="h-4 w-4 mr-1" />
               {dateRange}
             </div>
-            <div className="flex items-center">
-              <Users className="h-4 w-4 mr-1" />
-              {memberCount}명
-            </div>
           </div>
           
           <div className="flex items-center justify-between">

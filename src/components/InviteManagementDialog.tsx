@@ -116,10 +116,6 @@ const InviteManagementDialog = ({ open, onOpenChange, groupId, groupName }: Invi
         </DialogHeader>
 
         <Tabs defaultValue="link" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="link">초대 코드</TabsTrigger>
-            <TabsTrigger value="history">초대 코드 상태</TabsTrigger>
-          </TabsList>
 
           <TabsContent value="link" className="space-y-4">
             <Card>
@@ -143,72 +139,16 @@ const InviteManagementDialog = ({ open, onOpenChange, groupId, groupName }: Invi
                   </div>
                 </div>
 
-                <div className="grid">
-                  <div className="space-y-2">
-                    <Label>만료 시간</Label>
-                    <Select value={expiryTime} onValueChange={setExpiryTime}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="10min">10분</SelectItem>
-                        <SelectItem value="1hour">1시간</SelectItem>
-                        <SelectItem value="1day">1일</SelectItem>
-                        <SelectItem value="never">무제한</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <Button onClick={regenerateCode} disabled={loading} className="w-full">
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  새 코드 생성
-                </Button>
+                {/*<Button onClick={regenerateCode} disabled={loading} className="w-full">*/}
+                {/*  <RefreshCw className="h-4 w-4 mr-2" />*/}
+                {/*  새 코드 생성*/}
+                {/*</Button>*/}
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="history" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Clock className="h-4 w-4" />
-                  <span>초대 코드 상태</span>
-                </CardTitle>
-                <CardDescription>
-                  보낸 초대 코드들의 상태를 확인하세요
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {invitations.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>보낸 초대가 없습니다</p>
-                    <p className="text-sm">코드로 친구를 초대해보세요!</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {invitations.map((invitation) => (
-                      <div key={invitation.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div>
-                          <p className="font-medium">
-                            {`코드: ${invitation.invite_code}`}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            만료: {invitation.expires_at ? new Date(invitation.expires_at).toLocaleString('ko-KR') : "무제한"}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            생성일: {new Date(invitation.created_at).toLocaleDateString('ko-KR')}
-                          </p>
-                        </div>
-                        {getStatusBadge(invitation.expires_at)}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+
+
         </Tabs>
       </DialogContent>
     </Dialog>
