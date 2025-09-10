@@ -358,6 +358,49 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
     });
   };
 
+  const loadAllPolls = async () => {
+    setLoading(true);
+    try {
+      const list = await apiListPolls(groupId);
+      const mapped = mapListToVotes(list);
+      setVotes(mapped);
+
+      // 결과 동기화(선택): 각 투표의 득표 수 다시 맞추기
+      await Promise.all(
+        mapped.map(async (poll) => {
+          try {
+            const res = await apiGetResults(poll.id);
+            setVotes((prev) =>
+              prev.map((v) => {
+                if (v.id !== poll.id) return v;
+                const optMap = new Map<number, number>();
+                // ✅ 객체 응답의 options 사용
+                (res.options || []).forEach((r) => optMap.set(r.optionId, r.votes));
+                const newOptions = v.options.map((o) => ({
+                  ...o,
+                  votes: optMap.get(o.id) ?? 0,
+                }));
+                const total = newOptions.reduce((acc, cur) => acc + cur.votes, 0);
+                const my = (res.options || []).find((o) => o.isMine)?.optionId;
+                return { ...v, options: newOptions, totalVoters: total, myVoteOptionId: my ?? v.myVoteOptionId };
+              })
+            );
+          } catch {
+            /* ignore */
+          }
+        })
+      );
+    } catch (e: any) {
+      toast({
+        title: "투표 목록 조회 실패",
+        description: e?.message || "목록을 불러오지 못했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // votes 목록이 갱신되면 구독 상태도 동기화
   useEffect(() => {
     syncSubscriptionsWithVotes();
@@ -366,51 +409,9 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
 
   /** 목록 로딩 */
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const list = await apiListPolls(groupId);
-        const mapped = mapListToVotes(list);
-        setVotes(mapped);
-
-        // 결과 동기화(선택): 각 투표의 득표 수 다시 맞추기
-        await Promise.all(
-            mapped.map(async (poll) => {
-              try {
-                const res = await apiGetResults(poll.id);
-                setVotes((prev) =>
-                    prev.map((v) => {
-                      if (v.id !== poll.id) return v;
-                      const optMap = new Map<number, number>();
-                      // ✅ 객체 응답의 options 사용
-                      res.options.forEach((r) => optMap.set(r.optionId, r.votes));
-                      const newOptions = v.options.map((o) => ({
-                        ...o,
-                        votes: optMap.get(o.id) ?? 0,
-                      }));
-                      const total = newOptions.reduce((acc, cur) => acc + cur.votes, 0);
-                      const my = res.options.find((o) => o.isMine)?.optionId;
-                      return { ...v, options: newOptions, totalVoters: total, myVoteOptionId: my ?? v.myVoteOptionId };
-                    })
-                );
-              } catch {
-                /* ignore */
-              }
-            })
-        );
-      } catch (e: any) {
-        toast({
-          title: "투표 목록 조회 실패",
-          description: e?.message || "목록을 불러오지 못했습니다.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-        // 최초 로딩 직후, 현재 목록 기준으로 구독 동기화
-        syncSubscriptionsWithVotes();
-      }
-    })();
-  }, [groupId, toast]);
+    loadAllPolls();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupId]);
 
   /** 투표 생성 */
   const handleCreateVote = async () => {
@@ -454,34 +455,7 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
         options: newVote.options.map((o) => o.text.trim()).filter(Boolean), // ✅ 문자열 배열
       };
 
-      const { id } = await apiCreatePoll(body);
-
-      // 목록 재조회
-      const list = await apiListPolls(groupId);
-      const mapped: Vote[] = list.map((p) => {
-        const options: VoteOption[] = p.options.map((o) => ({
-          id: o.id,
-          text: o.content,
-          votes: o.votes ?? 0,
-          voters: [],
-        }));
-        return {
-          id: p.id,
-          title: p.title,
-          description: p.description,
-          category: categoryCodeToName(p.categoryCode),
-          status: p.status,
-          closesAt: p.closesAt,
-          options,
-          totalVoters:
-              typeof p.totalVoters === "number"
-                  ? p.totalVoters
-                  : options.reduce((a, c) => a + (c.votes ?? 0), 0),
-          myVoteOptionId: p.myVoteOptionId ?? undefined,
-        };
-      });
-      setVotes(mapped);
-      syncSubscriptionsWithVotes();
+      await apiCreatePoll(body);
 
       // 생성 모달 리셋/닫기
       setNewVote({
@@ -498,22 +472,7 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
 
       toast({ title: "투표가 생성되었습니다." });
 
-      // 생성된 poll 결과 동기화(선택)
-      try {
-        const res = await apiGetResults(id);
-        setVotes((prev) =>
-            prev.map((v) => {
-              if (v.id !== id) return v;
-              const optVotes = new Map(res.options.map((o) => [o.optionId, o.votes]));
-              const newOptions = v.options.map((o) => ({ ...o, votes: optVotes.get(o.id) ?? 0 }));
-              const total = newOptions.reduce((a, c) => a + c.votes, 0);
-              const my = res.options.find((o) => o.isMine)?.optionId ?? v.myVoteOptionId;
-              return { ...v, options: newOptions, totalVoters: total, myVoteOptionId: my };
-            })
-        );
-      } catch {
-        /* no-op */
-      }
+      await loadAllPolls();
     } catch (e: any) {
       toast({
         title: "투표 생성 실패",
