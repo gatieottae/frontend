@@ -70,7 +70,18 @@ export const put = async <T>(url: string, data: object): Promise<T> => {
  * DELETE 요청
  * @param url - 요청할 URL
  */
-export const del = async <T>(url: string): Promise<T> => {
-    const response = await http.delete<T>(url);
-    return response.data;
+
+export const del = async (url: string): Promise<void> => {
+    await http.delete(url);
 };
+
+
+/**
+ * PATCH 요청
+ * @param url - 요청할 URL
+ * @param data - 전송할 데이터
+ */
+export const patch = async (url: string, data?: object): Promise<void> => {
+    await http.patch(url, data);
+};
+
