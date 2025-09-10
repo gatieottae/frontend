@@ -1,5 +1,5 @@
 // src/components/VotingSystem.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,11 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {get, post, patch, del} from "@/lib/http";
 import { useToast } from "@/hooks/use-toast";
+
+import { Client, IMessage } from "@stomp/stompjs";
+import SockJS from "sockjs-client";
+import type { StompSubscription } from "@stomp/stompjs";
+
 
 /** =========================
  * 타입 정의
@@ -78,6 +83,20 @@ type PollCreateReqDto = {
   closesAt?: string;      // ISO-8601
   options: string[];      // 문자열 배열
 };
+
+/** =========================
+ * 실시간 업데이트(WS) 메시지 스펙
+ *  - 백엔드에서 /topic/polls/{id}로 브로드캐스트하는 payload 형식과 동일
+ *  - 여기서는 Results 응답과 같은 형태를 가정
+ * ========================= */
+type PollRealtimePayload = PollResultsResDto;
+
+/** WebSocket/Stomp 엔드포인트 (백엔드 설정과 일치시킬 것)
+ *  - 예: Backend `WebSocketConfig`의 `setApplicationDestinationPrefixes("/app")` 및
+ *        `registry.addEndpoint("/ws").setAllowedOrigins("*") ...`
+ *  - 프런트에서는 SockJS로 `/ws`에 연결하고, 구독은 `/topic/polls/{id}`
+ */
+const WS_ENDPOINT = (import.meta as any)?.env?.VITE_WS_ENDPOINT || "/ws";
 
 /** =========================
  * 카테고리 맵핑
@@ -233,6 +252,118 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
     setEditingVote(null);
   };
 
+  // ===== WebSocket / STOMP =====
+  const stompRef = useRef<Client | null>(null);
+  const subscribedIdsRef = useRef<Set<number>>(new Set()); // 현재 구독 중인 pollId 집합
+
+  /** Poll ID를 받아 최신 득표 결과를 동기화 */
+  const syncPollResults = async (pollId: number) => {
+    try {
+      const res = await apiGetResults(pollId);
+      setVotes(prev =>
+        prev.map(v => {
+          if (v.id !== pollId) return v;
+          const optVotes = new Map((res.options || []).map(o => [o.optionId, o.votes]));
+          const newOptions = v.options.map(o => ({ ...o, votes: optVotes.get(o.id) ?? 0 }));
+          const total = newOptions.reduce((a, c) => a + c.votes, 0);
+          const my = (res.options || []).find(o => o.isMine)?.optionId ?? undefined;
+          return { ...v, options: newOptions, totalVoters: total, myVoteOptionId: my };
+        })
+      );
+    } catch (e) {
+      console.error(`Failed to sync poll results for pollId: ${pollId}`, e);
+    }
+  };
+
+  /** 서버가 push한 결과(payload)를 현재 화면 상태에 반영 */
+  const applyRealtimeResults = (payload: PollRealtimePayload) => {
+    if (payload && payload.pollId) {
+      syncPollResults(payload.pollId);
+    }
+  };
+
+  const subsByPollIdRef = useRef<Map<number, StompSubscription>>(new Map());
+
+  /** =========================
+   * STOMP 연결 수립 (마운트 시 1회)
+   * ========================= */
+  useEffect(() => {
+    // 이미 연결되어 있으면 스킵
+    if (stompRef.current) return;
+
+    const client = new Client({
+      // 웹소켓 팩토리: SockJS 사용 (브라우저 호환)
+      webSocketFactory: () => new SockJS(WS_ENDPOINT) as any,
+      reconnectDelay: 2000, // 자동 재연결(ms)
+      heartbeatIncoming: 10000,
+      heartbeatOutgoing: 10000,
+      // 디버그 로깅 (필요 시 주석 해제)
+      // debug: (msg) => console.log("[STOMP]", msg),
+      onConnect: () => {
+        // 연결되면, 현재 보유한 투표 목록에 대해 구독을 보장한다.
+        // 실제 구독은 아래 `syncSubscriptionsWithVotes()`에서 처리
+        syncSubscriptionsWithVotes();
+      },
+      onStompError: (frame) => {
+        // 서버에서 ERROR frame 수신
+        // console.warn("[STOMP ERROR]", frame.headers["message"], frame.body);
+      },
+    });
+
+    stompRef.current = client;
+    client.activate();
+
+    return () => {
+      try {
+        for (const [, sub] of subsByPollIdRef.current.entries()) {
+          try { sub.unsubscribe(); } catch {}
+        }
+        subsByPollIdRef.current.clear();
+      } finally {
+        client.deactivate();
+        stompRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** 현재 votes 배열에 맞춰 구독/해제를 동기화 */
+  const syncSubscriptionsWithVotes = () => {
+    const client = stompRef.current;
+    if (!client || !client.connected) return;
+
+    const targetIds = new Set(votes.map((v) => v.id));
+
+    // 1) 필요 없는 구독 해제
+    for (const [pollId, sub] of subsByPollIdRef.current.entries()) {
+      if (!targetIds.has(pollId)) {
+        try { sub.unsubscribe(); } catch {}
+        subsByPollIdRef.current.delete(pollId);
+      }
+    }
+
+    // 2) 신규 구독 추가
+    votes.forEach((v) => {
+      if (subsByPollIdRef.current.has(v.id)) return;
+
+      const dest = `/topic/polls/${v.id}`;
+      const sub = client.subscribe(dest, (message: IMessage) => {
+        try {
+          const payload: PollRealtimePayload = JSON.parse(message.body);
+          applyRealtimeResults(payload);
+        } catch {/* ignore */}
+      });
+
+      subsByPollIdRef.current.set(v.id, sub);
+    });
+  };
+
+  // votes 목록이 갱신되면 구독 상태도 동기화
+  useEffect(() => {
+    syncSubscriptionsWithVotes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [votes]);
+
   /** 목록 로딩 */
   useEffect(() => {
     (async () => {
@@ -275,6 +406,8 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
         });
       } finally {
         setLoading(false);
+        // 최초 로딩 직후, 현재 목록 기준으로 구독 동기화
+        syncSubscriptionsWithVotes();
       }
     })();
   }, [groupId, toast]);
@@ -348,6 +481,7 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
         };
       });
       setVotes(mapped);
+      syncSubscriptionsWithVotes();
 
       // 생성 모달 리셋/닫기
       setNewVote({
@@ -442,17 +576,7 @@ const VotingSystem = ({ groupId }: VotingSystemProps) => {
       }
 
       // 서버 기준으로 최종 동기화
-      const res = await apiGetResults(pollId);
-      setVotes(prev =>
-        prev.map(v => {
-          if (v.id !== pollId) return v;
-          const optVotes = new Map(res.options.map(o => [o.optionId, o.votes]));
-          const newOptions = v.options.map(o => ({ ...o, votes: optVotes.get(o.id) ?? 0 }));
-          const total = newOptions.reduce((a, c) => a + c.votes, 0);
-          const my = res.options.find(o => o.isMine)?.optionId ?? undefined;
-          return { ...v, options: newOptions, totalVoters: total, myVoteOptionId: my };
-        })
-      );
+      await syncPollResults(pollId);
     } catch (e: any) {
       const status = e?.response?.status ?? e?.status;
       if (Number(status) === 409) {
