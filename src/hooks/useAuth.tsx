@@ -83,12 +83,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
-      // ✅ 엔드포인트 변경: /auth/signin -> /auth/login
-      await api.post('/auth/login', { username: email, password });
-      // 로그인 시 쿠키를 심는 구조이므로, 유저 정보는 /auth/me로 다시 가져온다.
+
+      // 로그인: 응답 본문에 tokenType, accessToken, refreshToken가 온다
+      const { data } = await api.post('/auth/login', { username: email, password });
+
+      // ✅ 토큰 저장 (중요)
+      if (data?.accessToken) {
+        localStorage.setItem('accessToken', data.accessToken);
+        console.log('[AUTH] saved accessToken', data.accessToken.slice(0, 20) + '...');
+      }
+      if (data?.refreshToken) {
+        localStorage.setItem('refreshToken', data.refreshToken);
+      }
+
+      // 토큰 기반이므로 이후 모든 요청은 인터셉터가 Authorization 자동 첨부
       await refreshMe();
       return { error: null };
     } catch (error: any) {
+      // 실패 시 혹시 남아있을 잔여 토큰 제거
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+
       return { error: { message: error?.response?.data?.message || error.message } };
     } finally {
       setLoading(false);
@@ -110,11 +125,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     try {
       setLoading(true);
-      // 서버 쿠키 삭제(엔드포인트가 없으면 무시 가능)
+      // 서버 호출이 필요 없다면 주석 처리 가능
       await api.post('/auth/logout');
     } catch {
       // ignore
     } finally {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
       setUser(null);
       setLoading(false);
     }

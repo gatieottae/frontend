@@ -10,7 +10,19 @@ export const http = axios.create({
 // --- 요청 인터셉터 ---
 http.interceptors.request.use(
     (config) => {
-        // 필요 시 여기에 로직 추가 (e.g. 토큰 헤더)
+        // ✅ localStorage에 저장된 accessToken 가져오기
+        const token = localStorage.getItem("accessToken");
+        if (token) {
+            config.headers = config.headers ?? {};
+            (config.headers as any).Authorization = `Bearer ${token}`;
+        }
+
+        // 디버그 로그 (개발용)
+        if (import.meta.env.DEV) {
+            console.log("[HTTP]", config.method?.toUpperCase(), config.url);
+            console.log("[Authorization]", (config.headers as any).Authorization);
+        }
+
         return config;
     },
     (error) => Promise.reject(error),
