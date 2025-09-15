@@ -1,7 +1,6 @@
-// src/pages/AuthCallback.tsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "@/lib/api";
+import { http } from "@/lib/http";       // ✅ api.ts 대신 http.ts
 import { useAuth } from "@/hooks/useAuth";
 
 const AuthCallback = () => {
@@ -11,7 +10,6 @@ const AuthCallback = () => {
     useEffect(() => {
         (async () => {
             try {
-                // 1) URL에서 토큰 추출 (?accessToken=... 또는 #accessToken=...)
                 const search = new URLSearchParams(window.location.search);
                 const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
 
@@ -21,35 +19,25 @@ const AuthCallback = () => {
                 if (urlAccess) localStorage.setItem("accessToken", urlAccess);
                 if (urlRefresh) localStorage.setItem("refreshToken", urlRefresh);
 
-                // 2) URL에 없으면 쿠키→토큰 교환
                 if (!urlAccess) {
+                    // ✅ 쿠키→토큰 교환: __skipAuth 로 Authorization 완전 배제
                     try {
-                        const { data } = await api.get("/auth/token", { withCredentials: true });
-                        if (data?.accessToken) {
-                            localStorage.setItem("accessToken", data.accessToken);
-                        }
-                        if (data?.refreshToken) {
-                            localStorage.setItem("refreshToken", data.refreshToken);
-                        }
+                        const res = await http.get("/auth/token", { __skipAuth: true as any });
+                        if (res.data?.accessToken) localStorage.setItem("accessToken", res.data.accessToken);
+                        if (res.data?.refreshToken) localStorage.setItem("refreshToken", res.data.refreshToken);
                         if (import.meta.env.DEV) console.log("[AuthCallback] exchanged token via cookie");
                     } catch (err) {
                         if (import.meta.env.DEV) console.warn("[AuthCallback] /auth/token exchange failed", err);
-                        // 교환 실패 시에도 아래 refreshMe로 401이면 잡힘
                     }
                 } else {
                     if (import.meta.env.DEV) console.log("[AuthCallback] token found in URL");
                 }
 
-                // 3) 내 프로필 하이드레이션 (여기서 401이면 로그인 실패로 간주)
-                await refreshMe();
+                await refreshMe(); // 여기서 200이면 로그인 성공
 
-                // 4) URL 정리
                 window.history.replaceState({}, "", window.location.pathname);
-
-                // 5) 성공 → 홈
                 navigate("/", { replace: true });
-            } catch (e) {
-                // 실패 → 로그인 페이지로
+            } catch {
                 window.history.replaceState({}, "", window.location.pathname);
                 navigate("/login?reason=callback_error", { replace: true });
             }

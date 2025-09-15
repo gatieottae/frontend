@@ -1,9 +1,5 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import api from '@/lib/api';
-
-// 서버가 쿠키(JWT)를 세팅/검증하고, 프론트는 /auth/me 로 현재 사용자만 조회하는 구조입니다.
-// 카카오는 버튼 클릭 -> 백엔드에서 받은 authorizeUrl 로 이동 -> 콜백에서 쿠키 세팅 -> 홈으로 리다이렉트 ->
-// 앱이 부팅되며 /auth/me 호출로 사용자 상태(user) 하이드레이션.
+import { useState, useEffect, createContext, useContext, ReactNode } from "react";
+import { http } from "@/lib/http";   // ✅
 
 export interface User {
   id: string | number;
@@ -16,33 +12,26 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  // 로컬 아이디/패스워드 로그인(있다면)
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, name?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
-  // 카카오 로그인 시작
   startKakaoLogin: () => Promise<void>;
-  // 수동으로 /auth/me 재조회
   refreshMe: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
+  return ctx;
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // 앱 시작 시 쿠키 기반 세션 하이드레이션
   useEffect(() => {
-    // 첫 렌더에서만 한번 불러오기
     refreshMe().catch(() => void 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -50,8 +39,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const refreshMe = async () => {
     try {
       setLoading(true);
-      const { data } = await api.get('/auth/me'); // 200이면 로그인 상태
-      // 백엔드에서 내려주는 필드 이름에 맞춰 매핑(필요 시 조정)
+      const { data } = await http.get("/auth/me"); // ✅ http 사용
       const mapped: User = {
         id: data.id ?? data.memberId ?? data.user?.id,
         email: data.email ?? data.user?.email ?? null,
@@ -60,50 +48,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         profileImageUrl: data.profileImageUrl ?? data.user?.profileImageUrl ?? null,
       };
       setUser(mapped);
-    } catch (e) {
-      setUser(null); // 401 등은 비로그인으로 취급
+    } catch {
+      setUser(null);
     } finally {
       setLoading(false);
     }
   };
 
-  // 카카오 로그인 시작: 백엔드에서 authorizeUrl 받아 리다이렉트
   const startKakaoLogin = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get<{ authorizeUrl: string }>('/auth/kakao/login-url');
-      // 백엔드가 state를 쓰고 싶다면 여기서 붙여도 됨
+      const { data } = await http.get<{ authorizeUrl: string }>("/auth/kakao/login-url", { __skipAuth: true as any });
       window.location.href = data.authorizeUrl;
     } finally {
       setLoading(false);
     }
   };
 
-  // 로컬 로그인
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
-
-      // 로그인: 응답 본문에 tokenType, accessToken, refreshToken가 온다
-      const { data } = await api.post('/auth/login', { username: email, password });
-
-      // ✅ 토큰 저장 (중요)
-      if (data?.accessToken) {
-        localStorage.setItem('accessToken', data.accessToken);
-        console.log('[AUTH] saved accessToken', data.accessToken.slice(0, 20) + '...');
-      }
-      if (data?.refreshToken) {
-        localStorage.setItem('refreshToken', data.refreshToken);
-      }
-
-      // 토큰 기반이므로 이후 모든 요청은 인터셉터가 Authorization 자동 첨부
+      const { data } = await http.post("/auth/login", { username: email, password }, { __skipAuth: true as any });
+      if (data?.accessToken) localStorage.setItem("accessToken", data.accessToken);
+      if (data?.refreshToken) localStorage.setItem("refreshToken", data.refreshToken);
       await refreshMe();
       return { error: null };
     } catch (error: any) {
-      // 실패 시 혹시 남아있을 잔여 토큰 제거
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
       return { error: { message: error?.response?.data?.message || error.message } };
     } finally {
       setLoading(false);
@@ -113,7 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signUp = async (email: string, password: string, name?: string) => {
     try {
       setLoading(true);
-      await api.post('/auth/signup', { email, password, name });
+      await http.post("/auth/signup", { email, password, name }, { __skipAuth: true as any });
       return { error: null };
     } catch (error: any) {
       return { error: { message: error?.response?.data?.message || error.message } };
@@ -125,30 +97,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     try {
       setLoading(true);
-      // 서버 호출이 필요 없다면 주석 처리 가능
-      await api.post('/auth/logout');
-    } catch {
-      // ignore
+      await http.post("/auth/logout").catch(() => {});
     } finally {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
       setUser(null);
       setLoading(false);
     }
   };
 
-  const value: AuthContextType = {
-    user,
-    loading,
-    signIn,
-    signUp,
-    signOut,
-    startKakaoLogin,
-    refreshMe,
-  };
-
   return (
-      <AuthContext.Provider value={value}>
+      <AuthContext.Provider
+          value={{ user, loading, signIn, signUp, signOut, startKakaoLogin, refreshMe }}
+      >
         {children}
       </AuthContext.Provider>
   );

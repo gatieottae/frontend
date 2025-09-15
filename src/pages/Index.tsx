@@ -4,10 +4,10 @@ import CreateGroupDialog from "@/components/CreateGroupDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Search, Plane, Heart } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { http } from "@/lib/http";
 
 /** ---- 백엔드 DTO 타입 ---- */
 type BackendGroupItem = {
@@ -135,21 +135,10 @@ const Index = () => {
 
       if (!reset && nextCursor) params.set('cursor', nextCursor);
 
-      const token = (user as any)?.accessToken || (user as any)?.token; // 프로젝트 토큰 키에 맞춰 사용
-      const res = await fetch(`/api/me/groups?${params.toString()}`, {
-        headers: {
-          'Accept': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        credentials: 'include'
-      });
+      const res = await http.get<GroupsPage>("/me/groups", { params });
 
-      if (!res.ok) {
-        const body = await res.text();
-        throw new Error(body || `HTTP ${res.status}`);
-      }
+      const page = res.data;
 
-      const page: GroupsPage = await res.json();
       const mapped = (page.items ?? []).map(toUiGroup);
 
       if (reset) {
