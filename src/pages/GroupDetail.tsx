@@ -322,7 +322,10 @@ const GroupDetail = () => {
 
             <TabsContent value="chat" className="mt-6">
               <div className="container mx-auto px-4">
-                <GroupChat groupId={String(group.id)} />
+                <GroupChat
+                 groupId={String(group.id)}
+                 apiBase={"http://localhost:8080"}
+                />
               </div>
             </TabsContent>
 

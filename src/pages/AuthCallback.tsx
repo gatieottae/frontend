@@ -1,17 +1,47 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { http } from "@/lib/http";       // ✅ api.ts 대신 http.ts
 import { useAuth } from "@/hooks/useAuth";
 
 const AuthCallback = () => {
-    const { user, loading, refreshMe } = useAuth();
+    const { refreshMe } = useAuth();
     const navigate = useNavigate();
 
     useEffect(() => {
-        // AuthProvider가 로드 시 이미 refreshMe를 실행하고 있을 수 있습니다.
-        // 하지만 콜백 페이지에 도달하는 시점은 명시적으로 다시 호출하는 것이 안전합니다.
-        refreshMe().finally(() => {
-            navigate("/", { replace: true });
-        });
+        (async () => {
+            try {
+                const search = new URLSearchParams(window.location.search);
+                const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+
+                const urlAccess = search.get("accessToken") || hash.get("accessToken");
+                const urlRefresh = search.get("refreshToken") || hash.get("refreshToken");
+
+                if (urlAccess) localStorage.setItem("accessToken", urlAccess);
+                if (urlRefresh) localStorage.setItem("refreshToken", urlRefresh);
+
+                if (!urlAccess) {
+                    // ✅ 쿠키→토큰 교환: __skipAuth 로 Authorization 완전 배제
+                    try {
+                        const res = await http.get("/auth/token", { __skipAuth: true as any });
+                        if (res.data?.accessToken) localStorage.setItem("accessToken", res.data.accessToken);
+                        if (res.data?.refreshToken) localStorage.setItem("refreshToken", res.data.refreshToken);
+                        if (import.meta.env.DEV) console.log("[AuthCallback] exchanged token via cookie");
+                    } catch (err) {
+                        if (import.meta.env.DEV) console.warn("[AuthCallback] /auth/token exchange failed", err);
+                    }
+                } else {
+                    if (import.meta.env.DEV) console.log("[AuthCallback] token found in URL");
+                }
+
+                await refreshMe(); // 여기서 200이면 로그인 성공
+
+                window.history.replaceState({}, "", window.location.pathname);
+                navigate("/", { replace: true });
+            } catch {
+                window.history.replaceState({}, "", window.location.pathname);
+                navigate("/login?reason=callback_error", { replace: true });
+            }
+        })();
     }, [refreshMe, navigate]);
 
     return (
