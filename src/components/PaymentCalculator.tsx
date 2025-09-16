@@ -206,21 +206,37 @@ const fetchMySettlement = async (
     groupId: string,
     members: { id: string; name: string }[]
 ): Promise<TransferDto[]> => {
-  // 항상 서버의 현재 상태를 직접 조회하여 반환
   const current = await getMyTransfers(groupId);
   const normalized = normalizeTransfers(current, members);
 
-  // 안정성을 위해 시그니처를 계산하고 로컬에 저장하는 로직은 유지
+  // 1) 서버 스냅샷 기준 시그니처 계산(선택)
   const sig = stableSignature(
-    current.map((t) => ({
-      fromMemberId: t.fromMemberId,
-      toMemberId: t.toMemberId,
-      amount: t.amount,
-    }))
+      current.map((t) => ({
+        fromMemberId: t.fromMemberId,
+        toMemberId: t.toMemberId,
+        amount: t.amount,
+      }))
   );
-  saveCommitted(groupId, sig, normalized);
 
-  return normalized;
+  // 2) 로컬에 저장된 전송/확인 상태와 병합
+  const cached = loadCommitted(groupId);
+  const merged = normalized.map((t) => {
+    const local = cached.find((c) => c.id === t.id);
+    return local
+        ? {
+          ...t,
+          // 서버가 아직 SENT로 안 바뀌었어도, 로컬에서 보냈다고 표시했으면 유지
+          sent: t.sent || local.sent,
+          received: t.received || local.received,
+        }
+        : t;
+  });
+
+  // 3) 병합 결과를 로컬에 저장(새로고침에도 유지)
+  saveCommitted(groupId, sig, merged);
+
+  // 4) 병합 결과를 반환
+  return merged;
 };
 
 const fetchOverallSettlement = async (
