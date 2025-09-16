@@ -1,7 +1,7 @@
 // PaymentCalculator.tsx
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { get, post, del } from "@/lib/http";
+import {get, post, del, put} from "@/lib/http";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,85 +17,263 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 interface PaymentCalculatorProps {
   groupId: string;
   members: Array<{ id: string; name: string; avatar?: string }>;
-  currentUser: string; // 이름
+  currentMemberId: number;
 }
 
 type SplitType = "equal" | "custom";
 
-interface ExpenseUI {
-  id: string;
+/** ===== Server DTOs ===== */
+interface ExpenseRes {
+  id: number;
   title: string;
-  amount: number; // 원 단위 정수
-  paidBy: string; // 이름
-  splitAmong: string[]; // 이름 배열
-  date: string; // YYYY-MM-DD
-  splitType: SplitType;
-  customSplits?: { [memberName: string]: number };
+  amount: number;
+  paidBy: number;
+  paidAt: string;
+  shares: Array<{ memberId: number; shareAmount: number }>;
 }
 
-interface PaymentStatus {
-  from: string;
-  to: string;
+// Settlement
+type SettlementSnapshot = {
+  balances: Record<string, number>;
+  transfersDraft: Array<{ fromMemberId: number; toMemberId: number; amount: number; expenseId?: number }>;
+};
+
+
+/** ===== UI/Transfer DTOs ===== */
+interface TransferRes {
+  id: number;
+  fromMemberId: number;
+  fromName: string;
+  toMemberId: number;
+  toName: string;
   amount: number;
   sent: boolean;
   received: boolean;
 }
 
-/** ===== Server DTO (가정) ===== */
-interface ExpenseRes {
-  id: number;
-  title: string;
-  amount: number;          // BIGINT(원)
-  paidById: number;
-  paidAt: string;          // ISO
-  shares: Array<{ memberId: number; share: number }>;
+interface BalanceRes {
+  memberId: number;
+  name: string;
+  balance: number;
 }
 
-/** ===== API Calls ===== */
+interface ExpenseUI {
+  id: string;
+  title: string;
+  amount: number;
+  paidBy: string;
+  splitAmong: string[];
+  date: string;
+  splitType: SplitType;
+  customSplits?: { [memberName: string]: number };
+}
+
+// 커밋에 보낼 드래프트
+type TransferCommitDraft = {
+  fromMemberId: number;
+  toMemberId: number;
+  amount: number;
+  expenseId?: number;
+};
+
+// 서버에서 내려오는 원본 DTO (TransferResponseDto)
+type TransferServerDto = {
+  id: number;
+  groupId: number;
+  fromMemberId: number;
+  toMemberId: number;
+  amount: number;
+  status: "REQUESTED" | "SENT" | "CONFIRMED" | string;
+  expenseId?: number | null;
+  proofUrl?: string | null;
+  memo?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+type TransferDto = {
+  id: number;
+  fromMemberId: number;
+  fromName: string;
+  toMemberId: number;
+  toName: string;
+  amount: number;
+  sent: boolean;
+  received: boolean;
+};
+
+function normalizeTransfers(
+    items: TransferServerDto[],
+    members: { id: string; name: string }[]
+): TransferDto[] {
+  const nameById = (id: number) =>
+      members.find((m) => Number(m.id) === id)?.name ?? `#${id}`;
+
+  return (items ?? []).map((t) => ({
+    id: t.id,
+    fromMemberId: t.fromMemberId,
+    fromName: nameById(t.fromMemberId),   // ✅ 이름 매핑
+    toMemberId: t.toMemberId,
+    toName: nameById(t.toMemberId),       // ✅ 이름 매핑
+    amount: t.amount,
+    sent: t.status === "SENT" || t.status === "CONFIRMED",
+    received: t.status === "CONFIRMED",
+  }));
+}
+
+
+/** ===== LocalStorage helpers (SSR-safe) ===== */
+const LS_KEY = (groupId: string) => ({
+  sig: `settlement:commitSig:${groupId}`,
+  items: `settlement:committed:${groupId}`,
+});
+
+function stableSignature(drafts: TransferCommitDraft[]) {
+  const sorted = drafts
+      .slice()
+      .sort(
+          (a, b) =>
+              a.fromMemberId - b.fromMemberId ||
+              a.toMemberId - b.toMemberId ||
+              a.amount - b.amount
+      );
+  return JSON.stringify(sorted);
+}
+
+function loadCommitted(groupId: string): TransferDto[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(LS_KEY(groupId).items);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+function saveCommitted(groupId: string, sig: string, items: TransferDto[]) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LS_KEY(groupId).sig, sig);
+  localStorage.setItem(LS_KEY(groupId).items, JSON.stringify(items));
+}
+
+function patchCached(groupId: string, id: number, patch: Partial<TransferDto>) {
+  const cur = loadCommitted(groupId);
+  const next = cur.map((t) => (t.id === id ? { ...t, ...patch } : t));
+  const sigKey = LS_KEY(groupId).sig;
+  const sig = typeof window !== "undefined" ? localStorage.getItem(sigKey) ?? "[]" : "[]";
+  saveCommitted(groupId, sig, next);
+}
+
+/** ===== API ===== */
 const fetchExpenses = (groupId: string) =>
     get<ExpenseRes[]>(`/groups/${groupId}/expenses`);
 
 const createExpense = (groupId: string, payload: any) =>
     post<ExpenseRes>(`/groups/${groupId}/expenses`, payload);
 
+const updateExpense = (groupId: string, expenseId: number, payload: any) =>
+    put<ExpenseRes>(`/groups/${groupId}/expenses/${expenseId}`, payload);
+
 const deleteExpense = (groupId: string, expenseId: string | number) =>
     del(`/groups/${groupId}/expenses/${expenseId}`);
+
+const commitTransfers = (groupId: string, drafts: TransferCommitDraft[]) =>
+    post("/transfers/commit", {
+      groupId,
+      items: drafts.map(d => ({
+        fromMemberId: d.fromMemberId,
+        toMemberId: d.toMemberId,
+        amount: d.amount,
+        expenseId: d.expenseId ?? null,
+      })),
+    });
+
+
+
+const sendTransfer = (groupId: string, transferId: number) =>
+    post<void>(`/transfers/${transferId}/send?groupId=${groupId}`, {});
+
+const confirmTransfer = (groupId: string, transferId: number) =>
+    post<void>(`/transfers/${transferId}/confirm?groupId=${groupId}`, {});
+
+const nudgeTransfer = (groupId: string, transferId: number) =>
+    post<void>(`/transfers/${transferId}/nudge?groupId=${groupId}`, {});
+
+/** ===== Settlement fetchers ===== */
+const getMyTransfers = (groupId: string) =>
+    get<TransferServerDto[]>(`/transfers/groups/${groupId}/transfers/me`);
+
+const fetchMySettlement = async (
+    groupId: string,
+    members: { id: string; name: string }[]
+): Promise<TransferDto[]> => {
+  // 항상 서버의 현재 상태를 직접 조회하여 반환
+  const current = await getMyTransfers(groupId);
+  const normalized = normalizeTransfers(current, members);
+
+  // 안정성을 위해 시그니처를 계산하고 로컬에 저장하는 로직은 유지
+  const sig = stableSignature(
+    current.map((t) => ({
+      fromMemberId: t.fromMemberId,
+      toMemberId: t.toMemberId,
+      amount: t.amount,
+    }))
+  );
+  saveCommitted(groupId, sig, normalized);
+
+  return normalized;
+};
+
+const fetchOverallSettlement = async (
+    groupId: string,
+    members: { id: string; name: string }[]
+) => {
+  const snap = await get<SettlementSnapshot>(`/groups/${groupId}/settlement/overall`);
+  const nameById = (id: number) =>
+      members.find((m) => Number(m.id) === id)?.name ?? `#${id}`;
+
+  const res: BalanceRes[] = Object.entries(snap.balances ?? {}).map(([k, v]) => ({
+    memberId: Number(k),
+    name: nameById(Number(k)),
+    balance: v ?? 0,
+  }));
+  res.sort((a, b) => b.balance - a.balance);
+  return res;
+};
 
 /** ===== Helpers ===== */
 const ymd = (iso?: string) =>
     (iso ? new Date(iso) : new Date()).toISOString().split("T")[0];
 
-/** 균등 분배(원 단위) — 나머지는 앞에서부터 +1로 분배 */
 function makeEqualShares(amount: number, memberIds: number[]) {
-  const n = memberIds.length;
+  const n = Math.max(memberIds.length, 1);
   const base = Math.floor(amount / n);
   let rem = amount % n;
   return memberIds.map((id, idx) => ({
     memberId: id,
-    share: base + (idx < rem ? 1 : 0),
+    shareAmount: base + (idx < rem ? 1 : 0),
   }));
 }
 
-/** shares로부터 splitType 추론 (모두 동일 금액이면 equal) */
-function inferSplitType(shares: Array<{ memberId: number; share: number }>): SplitType {
+function inferSplitType(
+    shares: Array<{ memberId: number; shareAmount: number }>
+): SplitType {
   if (shares.length <= 1) return "custom";
-  const first = shares[0].share;
-  return shares.every(s => s.share === first) ? "equal" : "custom";
+  const first = shares[0].shareAmount;
+  return shares.every((s) => s.shareAmount === first) ? "equal" : "custom";
 }
 
-/** 서버 → UI 매핑 */
 function mapExpenseToUI(e: ExpenseRes, nameById: (id: number) => string): ExpenseUI {
   const splitType = inferSplitType(e.shares);
-  const splitAmong = e.shares.map(s => nameById(s.memberId)).filter(Boolean);
+  const splitAmong = e.shares.map((s) => nameById(s.memberId)).filter(Boolean);
   const customSplits =
       splitType === "custom"
-          ? Object.fromEntries(e.shares.map(s => [nameById(s.memberId), s.share]))
+          ? Object.fromEntries(e.shares.map((s) => [nameById(s.memberId), s.shareAmount]))
           : undefined;
   return {
     id: String(e.id),
     title: e.title,
     amount: e.amount,
-    paidBy: nameById(e.paidById),
+    paidBy: nameById(e.paidBy),
     splitAmong,
     date: ymd(e.paidAt),
     splitType,
@@ -103,124 +281,196 @@ function mapExpenseToUI(e: ExpenseRes, nameById: (id: number) => string): Expens
   };
 }
 
-const PaymentCalculator = ({ groupId, members, currentUser }: PaymentCalculatorProps) => {
-  /** ===== Member Mappings (id ↔ name) ===== */
+/** ===== Component ===== */
+const PaymentCalculator = ({ groupId, members, currentMemberId }: PaymentCalculatorProps) => {
+  const [activeTab, setActiveTab] =
+      useState<"history" | "my-settlement" | "overall-settlement">("history");
+
   const idByName = useMemo(() => {
     const m = new Map<string, number>();
-    members.forEach(mem => m.set(mem.name, Number(mem.id)));
+    members.forEach((mem) => m.set(mem.name, Number(mem.id)));
     return m;
   }, [members]);
 
+  const myName = useMemo(
+      () => members.find((m) => Number(m.id) === currentMemberId)?.name ?? "",
+      [members, currentMemberId]
+  );
+
   const nameByIdFn = (id: number) => {
-    const found = members.find(m => Number(m.id) === id);
+    const found = members.find((m) => Number(m.id) === id);
     return found?.name ?? `#${id}`;
   };
 
-  /** ===== Local UI State (폼/모달/송금 가짜상태) ===== */
-  const [isAddingExpense, setIsAddingExpense] = useState(false);
-  const [paymentStatuses, setPaymentStatuses] = useState<PaymentStatus[]>([
-    { from: "박정우", to: "김민수", amount: 20000, sent: true, received: true },
-  ]);
+  const qc = useQueryClient();
 
+  // 지출 내역
+  const { data: expensesRes, isLoading: isLoadingExpenses, isError: isErrorExpenses } =
+      useQuery({
+        queryKey: ["expenses", groupId],
+        queryFn: () => fetchExpenses(groupId),
+        staleTime: 30_000,
+      });
+
+  const expenses: ExpenseUI[] = useMemo(() => {
+    if (!expensesRes) return [];
+    return expensesRes
+        .slice()
+        .sort((a, b) => (a.paidAt < b.paidAt ? 1 : -1))
+        .map((e) => mapExpenseToUI(e, nameByIdFn));
+  }, [expensesRes, members]);
+
+  // 나의 정산
+  const { data: myTransfers, isLoading: isLoadingMySettlement, isError: isErrorMySettlement } =
+      useQuery({
+        queryKey: ["settlement", "me", groupId],
+        queryFn: () => fetchMySettlement(groupId, members),
+        enabled: members.length > 0,
+        staleTime: 60_000,
+        refetchOnWindowFocus: false, // 포커스 때 중복 방지
+        retry: 0                     // 필요 시
+      });
+
+  // 전체 정산
+  const { data: overallBalances, isLoading: isLoadingOverall, isError: isErrorOverall } = useQuery({
+    queryKey: ["settlement", "overall", groupId],
+    queryFn: () => fetchOverallSettlement(groupId, members),
+    enabled: members.length > 0 && activeTab === "overall-settlement",
+    staleTime: 15_000,
+  });
+
+  const prefetchOverall = () => {
+    if (members.length === 0) return;
+    qc.prefetchQuery({
+      queryKey: ["settlement", "overall", groupId],
+      queryFn: () => fetchOverallSettlement(groupId, members),
+      staleTime: 15_000,
+    });
+  };
+
+  /** ===== Local UI State (폼/모달) ===== */
+  const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [newExpense, setNewExpense] = useState<{
     title: string;
-    amount: string; // 입력값 문자열
-    paidBy: string; // 이름
+    amount: string;
+    paidBy: string;
     splitAmong: string[];
     splitType: SplitType;
     customSplits: { [memberName: string]: number };
   }>({
     title: "",
     amount: "",
-    paidBy: members[0]?.name || "",
-    splitAmong: members.map(m => m.name),
+    paidBy: myName || members[0]?.name || "",
+    splitAmong: members.map((m) => m.name),
     splitType: "equal",
     customSplits: {},
   });
 
-  /** ===== React Query: expenses ===== */
-  const qc = useQueryClient();
+  useEffect(() => {
+    if (!(window as any).appSocket) return;
+    const socket = (window as any).appSocket; // STOMP client
+    const subs: any[] = [];
 
-  const { data: expensesRes, isLoading, isError } = useQuery({
-    queryKey: ["expenses", groupId],
-    queryFn: () => fetchExpenses(groupId),
-    staleTime: 30_000,
+    const onMessage = (msg: any) => {
+      const payload = JSON.parse(msg.body);
+
+      if (payload.type === "TRANSFER_SENT" && payload.groupId === Number(groupId)) {
+        // 수신자 화면 → 입금 확인 버튼 활성화
+        qc.setQueryData<TransferDto[]>(["settlement", "me", String(groupId)], (prev) => {
+          if (!prev) return prev;
+          return prev.map(t =>
+              t.id === payload.transferId ? { ...t, sent: true } : t
+          );
+        });
+      }
+
+      if (payload.type === "TRANSFER_CONFIRMED" && payload.groupId === Number(groupId)) {
+        // 송금자 화면 → 완료된 정산으로 이동
+        qc.setQueryData<TransferDto[]>(["settlement", "me", String(groupId)], (prev) => {
+          if (!prev) return prev;
+          return prev.map(t =>
+              t.id === payload.transferId ? { ...t, received: true } : t
+          );
+        });
+        qc.invalidateQueries({ queryKey: ["settlement", "overall", String(groupId)] });
+      }
+    };
+
+    // ✅ user 기반 단일 채널 구독
+    subs.push(socket.subscribe(`/topic/notif/user/${currentMemberId}`, onMessage));
+
+    return () => subs.forEach(s => s.unsubscribe());
+  }, [groupId, currentMemberId, qc]);
+
+  /** ===== Create/Delete Expense ===== */
+  const { mutate: runCommit } = useMutation({
+    mutationFn: async () => {
+      const snap = await get<SettlementSnapshot>(`/groups/${groupId}/settlement/me`);
+      const drafts = (snap.transfersDraft ?? []).map((d) => ({
+        fromMemberId: d.fromMemberId,
+        toMemberId: d.toMemberId,
+        amount: d.amount,
+        expenseId: d.expenseId,
+      }));
+      // 드래프트가 있을 때만 커밋 요청
+      if (drafts.length > 0) {
+        return commitTransfers(groupId, drafts);
+      }
+    },
+    onSuccess: () => {
+      // 커밋 후 정산 데이터를 다시 불러와 새 송금 내역을 표시
+      qc.invalidateQueries({ queryKey: ["settlement", "me", groupId] });
+      qc.invalidateQueries({ queryKey: ["settlement", "overall", groupId] });
+    },
+    onError: (e: any) => {
+      alert(e?.message ?? "정산 내역을 업데이트하는 중 오류가 발생했습니다.");
+    },
   });
 
-  const expenses: ExpenseUI[] = useMemo(() => {
-    if (!expensesRes) return [];
-    return expensesRes
-        .slice()
-        .sort((a, b) => (a.paidAt < b.paidAt ? 1 : -1)) // 최신순
-        .map(e => mapExpenseToUI(e, nameByIdFn));
-  }, [expensesRes]);
-
-  /** ===== Create ===== */
   const { mutate: mutateCreate, isPending: creating } = useMutation({
     mutationFn: async () => {
-      // --- 입력 검증 ---
       const title = newExpense.title.trim();
       if (!title) throw new Error("지출 내역을 입력하세요.");
 
       const amount = Number(newExpense.amount);
-      if (!Number.isInteger(amount) || amount <= 0) {
+      if (!Number.isFinite(amount) || !Number.isInteger(amount) || amount <= 0) {
         throw new Error("금액을 올바르게 입력하세요. (정수, 1원 이상)");
       }
 
       const paidById = idByName.get(newExpense.paidBy);
-      if (paidById == null) {
-        throw new Error("지불자를 선택하세요.");
-      }
+      if (paidById == null) throw new Error("지불자를 선택하세요.");
 
       const selectedIds = newExpense.splitAmong
-        .map((n) => idByName.get(n))
-        .filter((id): id is number => id != null);
+          .map((n) => idByName.get(n))
+          .filter((id): id is number => id != null);
 
-      if (selectedIds.length === 0) {
-        throw new Error("분담자를 1명 이상 선택하세요.");
-      }
+      if (selectedIds.length === 0) throw new Error("분담자를 1명 이상 선택하세요.");
 
-      // --- shares 생성 ---
-      let shares: Array<{ memberId: number; share: number }>;
-      if (newExpense.splitType === "equal") {
-        shares = makeEqualShares(amount, selectedIds);
-      } else {
-        const sum = selectedIds
-          .map((id) => newExpense.customSplits[nameByIdFn(id)] || 0)
-          .reduce((a, b) => a + b, 0);
-
-        if (sum !== amount) {
-          throw new Error("분담금 총합이 지출 금액과 일치하지 않습니다.");
-        }
-
-        shares = selectedIds.map((id) => ({
-          memberId: id,
-          share: newExpense.customSplits[nameByIdFn(id)] || 0,
-        }));
-      }
-
-      // --- 날짜 포맷: YYYY-MM-DDTHH:mm:ss ---
-      const paidAt = new Date().toISOString().split(".")[0];
-
-      // --- 서버 전송 페이로드 ---
-      const payload = {
-        title,
-        amount,
-        paidById,
-        paidAt,
-        shares,
-      };
+      const payload =
+          newExpense.splitType === "equal"
+              ? { title, amount, paidBy: paidById, shares: makeEqualShares(amount, selectedIds) }
+              : {
+                title,
+                amount,
+                paidBy: paidById,
+                shares: selectedIds.map((id) => ({
+                  memberId: id,
+                  shareAmount: newExpense.customSplits[nameByIdFn(id)] || 0,
+                })),
+              };
 
       return createExpense(groupId, payload);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["expenses", groupId] });
+      runCommit(); // 지출 추가 후 정산 커밋 실행
+
       setIsAddingExpense(false);
       setNewExpense({
         title: "",
         amount: "",
-        paidBy: members[0]?.name || "",
-        splitAmong: members.map(m => m.name),
+        paidBy: myName || members[0]?.name || "",
+        splitAmong: members.map((m) => m.name),
         splitType: "equal",
         customSplits: {},
       });
@@ -230,100 +480,94 @@ const PaymentCalculator = ({ groupId, members, currentUser }: PaymentCalculatorP
     },
   });
 
-  /** ===== Delete ===== */
   const { mutate: mutateDelete } = useMutation({
     mutationFn: (expenseId: string) => deleteExpense(groupId, expenseId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["expenses", groupId] }),
-    onError: (e: any) => alert(e?.message ?? "삭제 중 오류가 발생했습니다."),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["expenses", groupId] });
+      runCommit(); // 지출 삭제 후 정산 커밋 실행
+    },
+    onError: (e: any) => {
+      if (e?.response?.status === 409) {
+        alert("이미 정산에 포함된 지출은 삭제할 수 없습니다.");
+      } else {
+        alert(e?.message ?? "삭제 중 오류가 발생했습니다.");
+      }
+    },
   });
 
-  /** ===== 기존 송금 UI 가짜로 유지 (다음 단계에 API/WS 연결) ===== */
-  const togglePaymentSent = (from: string, to: string, amount: number) => {
-    setPaymentStatuses(prev => {
-      const existing = prev.find(p => p.from === from && p.to === to);
-      if (existing) {
-        return prev.map(p => (p.from === from && p.to === to ? { ...p, sent: !p.sent } : p));
-      } else {
-        return [...prev, { from, to, amount, sent: true, received: false }];
-      }
-    });
-  };
-  const getPaymentStatus = (from: string, to: string) =>
-      paymentStatuses.find(p => p.from === from && p.to === to);
+  /** ===== My settlement subsets ===== */
+  const myTransfersToReceive = useMemo(() => {
+    if (!myTransfers || currentMemberId == null) return [];
+    const myId = Number(currentMemberId);
+    return myTransfers.filter((t) => t.toMemberId === myId && !t.received);
+  }, [myTransfers, currentMemberId]);
 
-  /** ===== 기존 계산 로직은 UI용으로 유지 (서버 연동 전 임시) ===== */
+  const myTransfersToSend = useMemo(() => {
+    if (!myTransfers || currentMemberId == null) return [];
+    const myId = Number(currentMemberId);
+    return myTransfers.filter((t) => t.fromMemberId === myId && !t.sent);
+  }, [myTransfers, currentMemberId]);
+
+  const completedTransfers = useMemo(
+      () => (myTransfers ?? []).filter((t) => t.sent && t.received),
+      [myTransfers]
+  );
+
+  /** ===== Mutations: send / confirm / nudge ===== */
+  const sendMut = useMutation({
+    mutationFn: (transferId: number) => sendTransfer(groupId, transferId),
+    onSuccess: (_data, id) => {
+      patchCached(groupId, id, { sent: true });
+      qc.invalidateQueries({ queryKey: ["settlement", "me", groupId] });
+      qc.invalidateQueries({ queryKey: ["settlement", "overall", groupId] });
+    },
+    onError: (e: any) => alert(e?.message ?? "송금 처리 중 오류가 발생했습니다."),
+  });
+
+  const confirmMut = useMutation({
+    mutationFn: (transferId: number) => confirmTransfer(groupId, transferId),
+    onSuccess: (_data, id) => {
+      // 1) 즉시 캐시 반영(프론트 메모리)
+      qc.setQueryData<TransferDto[]>(["settlement","me",groupId], (prev) =>
+          prev?.map(t => t.id === id ? { ...t, sent: true, received: true } : t) ?? prev
+      );
+
+      // 2) 로컬스토리지도 반영(유지)
+      patchCached(groupId, id, { sent: true, received: true });
+
+      // 3) 최종 일관성 확보용 리페치
+      qc.invalidateQueries({ queryKey: ["settlement","me",groupId] });
+      qc.invalidateQueries({ queryKey: ["settlement","overall",groupId] });
+    }
+  });
+
+  const nudgeMut = useMutation({
+    mutationFn: (transferId: number) => nudgeTransfer(groupId, transferId),
+    onSuccess: () => alert("보채기 요청을 보냈습니다."),
+    onError: (e: any) => alert(e?.message ?? "보채기 요청 중 오류가 발생했습니다."),
+  });
+
+  /** ===== Common UI Helpers ===== */
   const formatCurrency = (amount: number) =>
       new Intl.NumberFormat("ko-KR").format(amount) + "원";
 
-  const calculateSettlement = () => {
-    const memberBalances: { [key: string]: number } = {};
-    members.forEach(m => (memberBalances[m.name] = 0));
-    expenses.forEach(exp => {
-      if (exp.splitType === "equal") {
-        const splitAmount = Math.floor(exp.amount / exp.splitAmong.length);
-        let rem = exp.amount % exp.splitAmong.length;
-        memberBalances[exp.paidBy] += exp.amount;
-        exp.splitAmong.forEach((name, idx) => {
-          const a = splitAmount + (idx < rem ? 1 : 0);
-          memberBalances[name] -= a;
-        });
-      } else if (exp.customSplits) {
-        memberBalances[exp.paidBy] += exp.amount;
-        Object.entries(exp.customSplits).forEach(([name, a]) => {
-          memberBalances[name] -= a;
-        });
-      }
-    });
-    return memberBalances;
-  };
-
-  const calculateTransfers = () => {
-    const balances = calculateSettlement();
-    const transfers: { from: string; to: string; amount: number }[] = [];
-    const debtors = Object.entries(balances).filter(([_, b]) => b < 0);
-    const creditors = Object.entries(balances).filter(([_, b]) => b > 0);
-    debtors.forEach(([debtor, debt]) => {
-      creditors.forEach(([creditor, credit]) => {
-        if (Math.abs(debt) > 0 && credit > 0) {
-          const t = Math.min(Math.abs(debt), credit);
-          transfers.push({ from: debtor, to: creditor, amount: Math.round(t) });
-          balances[debtor] += t;
-          balances[creditor] -= t;
-        }
-      });
-    });
-    return transfers.filter(t => t.amount > 0);
-  };
-
-  const balances = calculateSettlement();
-  const transfers = calculateTransfers();
+  /** ===== Render ===== */
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
 
-  const myTransfersToReceive = transfers.filter(
-      t => t.to === currentUser && !(getPaymentStatus(t.from, t.to)?.received),
-  );
-  const myTransfersToSend = transfers.filter(
-      t => t.from === currentUser && !(getPaymentStatus(t.from, t.to)?.sent),
-  );
-  const completedTransfers = transfers.filter(
-      t => getPaymentStatus(t.from, t.to)?.sent && getPaymentStatus(t.from, t.to)?.received,
-  );
-
-  const getTransferStatusText = (from: string, to: string) => {
-    const status = getPaymentStatus(from, to);
-    if (status?.sent && status?.received) return "✅ 송금 확인됨";
-    if (status?.sent && !status?.received) return `${from}님 → 송금 완료 (확인 대기)`;
-    return `${from}님 → 아직 송금 안함`;
-  };
-
-  /** ===== Render ===== */
   return (
       <div>
-        <Tabs defaultValue="history" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs
+            defaultValue="history"
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as "history" | "my-settlement" | "overall-settlement")}
+            className="w-full"
+        >
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="history">지출 내역</TabsTrigger>
             <TabsTrigger value="my-settlement">나의 정산</TabsTrigger>
-            <TabsTrigger value="overall-settlement">전체 정산 현황</TabsTrigger>
+            {/*<TabsTrigger value="overall-settlement" onMouseEnter={prefetchOverall}>*/}
+            {/*  전체 정산 현황*/}
+            {/*</TabsTrigger>*/}
           </TabsList>
 
           {/* === 지출 내역 탭 === */}
@@ -332,19 +576,18 @@ const PaymentCalculator = ({ groupId, members, currentUser }: PaymentCalculatorP
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>지출 내역</span>
-                  {/* 필요 시 정렬/필터 컨트롤 추가 예정 */}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
+                {isLoadingExpenses ? (
                     <p className="text-muted-foreground text-center py-8">불러오는 중…</p>
-                ) : isError ? (
+                ) : isErrorExpenses ? (
                     <p className="text-destructive text-center py-8">지출 목록 불러오기 실패</p>
                 ) : expenses.length === 0 ? (
                     <p className="text-muted-foreground text-center py-8">아직 지출 내역이 없습니다.</p>
                 ) : (
                     <div className="space-y-3">
-                      {expenses.map(exp => (
+                      {expenses.map((exp) => (
                           <div key={exp.id} className="flex items-center justify-between p-3 border rounded-lg">
                             <div>
                               <h4 className="font-medium">{exp.title}</h4>
@@ -403,14 +646,159 @@ const PaymentCalculator = ({ groupId, members, currentUser }: PaymentCalculatorP
             </div>
           </TabsContent>
 
-          {/* === 나의 정산 / 전체 현황 탭 ===
-            다음 단계에서 API/WS 연동으로 교체 예정 (지금은 기존 UI 계산 로직 유지) */}
+          {/* === 나의 정산 탭 === */}
           <TabsContent value="my-settlement">
-            {/* ... 기존 코드 그대로 (상단 계산 값은 expenses를 기반으로 동작) ... */}
+            <div className="space-y-6 mt-4">
+              {/* 내가 받을 돈 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>내가 받을 돈</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingMySettlement ? (
+                      <p className="text-muted-foreground text-center py-4">불러오는 중…</p>
+                  ) : isErrorMySettlement ? (
+                      <p className="text-destructive text-center py-4">정산 정보 불러오기 실패</p>
+                  ) : (myTransfersToReceive?.length ?? 0) === 0 ? (
+                      <p className="text-muted-foreground text-center py-4">받을 돈이 없습니다.</p>
+                  ) : (
+                      <div className="space-y-3">
+                        {myTransfersToReceive.map((t) => (
+                            <div key={t.id} className="border rounded-lg p-4 flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">
+                                  {t.fromName}님이 {formatCurrency(t.amount)}을(를) 보내야 합니다.
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {t.sent && !t.received ? `${t.fromName}님 → 송금 완료 (확인 대기)` : `아직 송금 안 됨`}
+                                </p>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button onClick={() => nudgeMut.mutate(t.id)} disabled={nudgeMut.isPending}>
+                                  보채기
+                                </Button>
+                                <Button onClick={() => confirmMut.mutate(t.id)} disabled={!t.sent || confirmMut.isPending}>
+                                  입금 확인
+                                </Button>
+                              </div>
+                            </div>
+                        ))}
+                      </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* 내가 보낼 돈 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>내가 보낼 돈</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingMySettlement ? (
+                      <p className="text-muted-foreground text-center py-4">불러오는 중…</p>
+                  ) : isErrorMySettlement ? (
+                      <p className="text-destructive text-center py-4">정산 정보 불러오기 실패</p>
+                  ) : (myTransfersToSend?.length ?? 0) === 0 ? (
+                      <p className="text-muted-foreground text-center py-4">보낼 돈이 없습니다.</p>
+                  ) : (
+                      <div className="space-y-3">
+                        {myTransfersToSend.map((t) => (
+                            <div key={t.id} className="border rounded-lg p-4 flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">
+                                  {t.toName}님에게 {formatCurrency(t.amount)}을(를) 보내야 합니다.
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {t.sent ? "송금 완료 (확인 대기)" : "아직 송금 안함"}
+                                </p>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button onClick={() => sendMut.mutate(t.id)} disabled={sendMut.isPending}>
+                                  보냈어요
+                                </Button>
+                              </div>
+                            </div>
+                        ))}
+                      </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* 완료된 정산 */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>완료된 정산</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingMySettlement ? (
+                      <p className="text-muted-foreground text-center py-4">불러오는 중…</p>
+                  ) : isErrorMySettlement ? (
+                      <p className="text-destructive text-center py-4">정산 정보 불러오기 실패</p>
+                  ) : (completedTransfers?.length ?? 0) === 0 ? (
+                      <p className="text-muted-foreground text-center py-4">완료된 정산 내역이 없습니다.</p>
+                  ) : (
+                      <div className="space-y-3">
+                        {completedTransfers.map((t) => (
+                            <div key={t.id} className="border rounded-lg p-4 flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">
+                                  {t.fromName}님 → {t.toName}님 {formatCurrency(t.amount)} 송금 완료
+                                </p>
+                                <p className="text-xs text-muted-foreground">✅ 송금 확인됨</p>
+                              </div>
+                              <Badge variant="secondary">완료</Badge>
+                            </div>
+                        ))}
+                      </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
+          {/* === 전체 정산 현황 탭 === */}
           <TabsContent value="overall-settlement">
-            {/* ... 기존 코드 그대로 (상단 balances 기반) ... */}
+            <div className="space-y-6 mt-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>전체 정산 현황</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingOverall ? (
+                      <p className="text-muted-foreground text-center py-4">불러오는 중…</p>
+                  ) : isErrorOverall ? (
+                      <p className="text-destructive text-center py-4">정산 현황 불러오기 실패</p>
+                  ) : !overallBalances || overallBalances.length === 0 ? (
+                      <p className="text-muted-foreground text-center py-4">정산 현황 데이터가 없습니다.</p>
+                  ) : (
+                      <div className="space-y-2">
+                        {overallBalances.map((row) => {
+                          const isPositive = row.balance > 0;
+                          const avatar = members.find((m) => Number(m.id) === row.memberId)?.avatar;
+                          return (
+                              <div key={row.memberId} className="flex justify-between items-center p-4 border rounded-md">
+                                <div className="flex items-center gap-2 text-base font-semibold">
+                                  <Avatar className="h-10 w-10">
+                                    <AvatarImage src={avatar} />
+                                    <AvatarFallback>{row.name.charAt(0)}</AvatarFallback>
+                                  </Avatar>
+                                  {row.name}
+                                </div>
+                                <div className={`text-right font-bold ${isPositive ? "text-green-600" : "text-red-600"}`}>
+                                  {isPositive ? "+" : ""}
+                                  {formatCurrency(Math.round(row.balance))}
+                                  <div className="text-xs text-muted-foreground font-normal">
+                                    {isPositive ? "받을 금액" : "낼 금액"}
+                                  </div>
+                                </div>
+                              </div>
+                          );
+                        })}
+                      </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
 
@@ -538,8 +926,8 @@ const PaymentCalculator = ({ groupId, members, currentUser }: PaymentCalculatorP
                         {new Intl.NumberFormat("ko-KR").format(
                             newExpense.splitAmong.reduce(
                                 (sum, name) => sum + (newExpense.customSplits[name] || 0),
-                                0,
-                            ),
+                                0
+                            )
                         )}
                         원
                       </div>

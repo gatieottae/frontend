@@ -116,11 +116,6 @@ const GroupDetail = () => {
     return group.members?.some(m => m.role === "OWNER") ?? false;
   }, [group, user]);
 
-  const currentUserName = useMemo(() => {
-    // 결제 컴포넌트에 넘기는 용도(임시). 실제로는 백의 내 이름을 사용하도록 교체하세요.
-    return group?.members?.[0]?.displayName ?? "나";
-  }, [group]);
-
   // 날짜 포맷
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "";
@@ -334,7 +329,7 @@ const GroupDetail = () => {
                 <PaymentCalculator
                     groupId={String(group.id)}
                     members={group.members.map(m => ({ id: String(m.id), name: m.displayName }))}
-                    currentUser={currentUserName}
+                    currentMemberId={Number((user as any)?.id)}
                 />
               </div>
             </TabsContent>
